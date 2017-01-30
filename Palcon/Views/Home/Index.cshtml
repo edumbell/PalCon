@@ -30,7 +30,10 @@
             }
 
             myHub.client.checkReadyToStart = function () {
-                myHub.server.clientReadyToStart(gameId);
+                console.log('server asking ready to start');
+                myHub.server.clientReadyToStart(gameId).done(function () {
+                    console.log('told server ready to start');
+                });
                 init();
             }
 
@@ -62,7 +65,7 @@
             }
 
             myHub.client.receiveSettings = function (jsonstr) {
-
+                console.log('received settings');
                 var settings = JSON.parse(jsonstr);
                 fleetspeed = settings.speed;
                 growthrate = settings.growth;
@@ -105,7 +108,7 @@
             .done(function (result) {
                 numPlayers = result;
                 if (numPlayers > 0) {
-                    console.log('sending map:');
+                    console.log('server says numplayers: ' + numPlayers);
                     var json = JSON.stringify( generateGameBoard());
                     myHub.server.sendMap(gameId, json);
                     
@@ -118,9 +121,10 @@
 
         var ticksPerTurn = 10;
         var msPerTurn = 500;
-        var growthrate = 1;
-        var fleetspeed = 1;
+        var growthrate = 100;
+        var fleetspeed = 100;
         var neutralPlanetCost = 7;
+        var attackRatio = .8;
 
         var planetradiuspercent = 1.9;
         var planetRadiusPixels = 0;
@@ -132,7 +136,7 @@
         // UI
         var highlight;
         var highlightedPlanet;
-
+        var sendPercent;
 
 
         // ENTITIES
@@ -201,8 +205,8 @@
                 //this.dx = 0 - this.dx;
                 //this.dy = 0 - this.dy;
             }
-            this.dx = globalscale * Math.cos(angle) * fleetspeed * 10  / ticksPerTurn;
-            this.dy = globalscale * Math.sin(angle) * fleetspeed * 10 / ticksPerTurn;
+            this.dx = globalscale * Math.cos(angle) * fleetspeed / 10  / ticksPerTurn;
+            this.dy = globalscale * Math.sin(angle) * fleetspeed / 10 / ticksPerTurn;
 
             this.shape = fleetShape(Math.sqrt(pop), startPlanet.shape.x, startPlanet.shape.y, owner, angle);
             this.path = fleetPath(startPlanet.shape.x, startPlanet.shape.y, destination.shape.x, destination.shape.y, owner);
@@ -489,14 +493,14 @@
         }
 
         function updatePlanet(p) {
-            var isOverpopulated = false;
+            
             if (p.owner > 0) {
                 if (p.pop < p.growth * 100) {
-                    p.pop += p.growth * growthrate / ticksPerTurn / 20;
+                    p.pop += p.growth * growthrate / ticksPerTurn * 10;
                 }
-                else
-                    isOverpopulated = true;
+
             }
+            var isOverpopulated = p.pop > p.growth * 100 - 1; // 1 wiggle room for rounding because using test to check
                 var newText = Math.round(p.pop);
 
                 if (newText != p.label.text) {
@@ -572,12 +576,12 @@
             showExplosion(f.shape.x, f.shape.y, f.shape.scaleX, f.owner);
 
             if (f.owner != f.destination.owner) {
-                var damage = f.pop * .9;
+                var damage = f.pop * attackRatio;
                 if (f.destination.pop >= damage) {
                     f.destination.pop -= damage;
                 }
                 else {
-                    fleetLoss = f.destination.pop / .9;
+                    fleetLoss = f.destination.pop / attackRatio;
                     f.destination.pop = f.pop - fleetLoss;
                     var p = f.destination;
                     showExplosion(p.x, p.y, p.radius * 3, p.owner, 2, true);
