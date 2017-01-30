@@ -1,0 +1,149 @@
+﻿
+<html>
+<head>
+    <!--<script src="https://code.createjs.com/easeljs-0.8.2.min.js"></script>-->
+    <script src="https://code.createjs.com/createjs-2015.11.26.min.js"></script>
+    <script>
+
+
+        function Planet(growth,x,y,pop,owner)
+        {
+            this.pop = pop;
+            this.owner = owner;
+            this.growth = growth;
+            this.diameter = Math.sqrt(growth) * planetdiameter;
+            this.shape = planetShape(this.diameter, x, y, owner);
+            this.label = planetLabel(pop, owner);
+            console.log(this.label.getMeasuredWidth() / 2);
+            this.label.x = x - this.label.getBounds().width /2 -1;
+            this.label.y = y - this.label.getMeasuredHeight() / 2 - 1;
+
+            stage.addChild(this.shape);
+            stage.addChild(this.label);
+        }
+
+        function Fleet(pop, startPlanet, destination, owner) {
+
+            this.shape = fleetShape(Math.sqrt(pop), startPlanet.shape.x, startPlanet.shape.y, owner);
+            stage.addChild(this.shape);
+        }
+
+
+        var growthrate = 1;
+        var planetdiameter = 20;
+        var planets = [];
+        var fleets = [];
+
+        var stage;
+        var globalscale;
+        var xbound, ybound;
+        var ownercolours = ['#ffffff','#ff9999','#99ff99','#9999ff'];
+
+        function newshape()
+        {
+            var shape = new createjs.Shape();
+            shape.scaleX = globalscale;
+            shape.scaleY = globalscale;
+            return shape;
+        }
+
+        function planetLabel(pop, owner) {
+            var txt = new createjs.Text( Math.round(pop), "15px arial", ownercolours[owner]);
+            return txt;
+        }
+
+        function planetShape(size, x, y, owner) {
+            var circle = newshape();
+            circle.graphics.setStrokeStyle(3 * globalscale);
+            console.log(size);
+            circle.graphics.beginStroke(ownercolours[owner]).drawCircle(0, 0, size);
+            circle.x = x;
+            circle.y = y;
+            return circle;
+        }
+
+        function fleetShape(scale, x, y, owner) {
+            var shape = newshape();
+            shape.scaleX = globalscale * scale;
+            shape.scaleY = globalscale * scale;
+            shape.graphics.setStrokeStyle(1);
+            shape.graphics.beginStroke(ownercolours[owner]);
+            shape.graphics.moveTo(0, 3 );
+            shape.graphics.lineTo(1, 0);
+            //.lineTo(-1, 0).lineto(0, 3);
+            shape.regX = 0;
+            shape.regY = 3;
+            shape.x = x;
+            shape.y = y;
+            return shape;
+        }
+
+        function bg() {
+            var bg = newshape();
+            bg.scaleX = 1;
+            bg.scaleY = 1;
+            bg.graphics.beginFill("#000000").drawRect(0, 0, xbound,ybound);
+            bg.x = 0;
+            bg.y = 0;
+            return bg;
+        }
+
+        function init() {
+            document.getElementById("PalCanvas").setAttribute('width', window.innerWidth-1);
+            document.getElementById("PalCanvas").setAttribute('height', window.innerWidth / 2);
+            xbound = document.getElementById("PalCanvas").width;
+            ybound = document.getElementById("PalCanvas").height;
+            globalscale = xbound / 1000;
+
+            // code here.
+            stage = new createjs.Stage("PalCanvas");
+            stage.update();
+            stage.addChild(bg());
+            var p = new Planet(1, 50, 50, 101.3, 0);
+            planets.push(p);
+            p = new Planet(2, 100, 140, 5, 1);
+            planets.push(p);
+            var f = new Fleet(10,planets[0],planets[1], 0);
+            fleets.push(f);
+
+            
+            
+            createjs.Ticker.setFPS(2);
+            createjs.Ticker.addEventListener("tick", handleTick);
+
+            
+        }
+
+        function handleTick(event) {
+            // Actions carried out each tick (aka frame)
+            if (!event.paused) {
+                // Actions carried out when the Ticker is not paused.
+                stage.update();
+            }
+        }
+    </script>
+
+</head>
+<body onload="init();" style="margin:0">
+    <canvas id="PalCanvas" width="1" height="1"></canvas>
+</body>
+</html>
+
+
+
+      <!--function init() {
+        var stage = new createjs.Stage("demoCanvas");
+        var circle = new createjs.Shape();
+        circle.graphics.beginFill("Crimson").drawCircle(0, 0, 50);
+        circle.x = 100;
+        circle.y = 100;
+        stage.addChild(circle);
+        createjs.Tween.get(circle, {loop: true})
+          .to({x: 400}, 1000, createjs.Ease.getPowInOut(4))
+          .to({alpha: 0, y: 75}, 500, createjs.Ease.getPowInOut(2))
+          .to({alpha: 0, y: 125}, 100)
+          .to({alpha: 1, y: 100}, 500, createjs.Ease.getPowInOut(2))
+          .to({x: 100}, 800, createjs.Ease.getPowInOut(2));
+        createjs.Ticker.setFPS(60);
+        createjs.Ticker.addEventListener("tick", stage);
+      }-->

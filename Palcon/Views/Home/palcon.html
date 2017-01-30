@@ -1,0 +1,580 @@
+﻿
+<html>
+<head>
+    <script src="Scripts/jquery-1.10.2.min.js"></script>
+    <script src="Scripts/jquery.signalR-2.1.2.min.js"></script>
+    <script src="signalr/hubs"></script>
+
+    <script src="https://code.createjs.com/createjs-2015.11.26.min.js"></script>
+    <script>
+
+// SIGNALR
+        var myHub;
+        $(function () {
+            myHub = $.connection.palconHub;
+
+            myHub.client.playerJoined = function (pid) {
+                numPlayers = Math.max(numPlayers, pid);
+                $("#playersLabel").html("Players: " + numPlayers);
+            }
+
+            myHub.client.joinSuccess = function (pid, gameId) {
+                ownerIndex = pid;
+                gameId = gameId;
+                $("#btnStart").show();
+            }
+
+            myHub.client.receiveMap = function (json) {
+                console.log(json);
+                $("#btnStart").hide();
+                $("#playersLabel").hide();
+                alert(json);
+                // INIT GAME
+            }
+
+            $.connection.hub.start().done(function () {
+                myHub.server.joinGame();
+            });
+        });
+
+        function startGame()
+        {
+            var canGoAhead = myHub.server.tryStartGame(gameId);
+            if (canGoAhead) {
+                var json = generateGameBoard();
+                myHub.server.sendMap(gameId, json);
+            }
+        }
+
+// CONFIGURABLE SETTINGS
+
+        var ticksPerTurn = 100;
+        var msPerTurn = 500;
+        var growthrate = 1;
+        var fleetspeed = .1;
+        var neutralPlanetCost = 7;
+
+        var planetradiuspercent = 2;
+        var planetRadiusPixels = 0;
+        
+        var planetsPerPlayer = 7;
+        var numPlayers = 0;
+        var gameId;
+
+        // UI
+        var highlight;
+        var highlightedPlanet;
+
+
+
+        // ENTITIES
+
+        function Planet(growth, x, y, pop, owner) {
+            this.index = planets.length;
+            this.x = x;
+            this.y = y;
+
+            this.pop = pop;
+            this.owner = owner;
+            this.growth = growth;
+            this.radius = Math.sqrt(growth) * planetRadiusPixels;
+            this.shape = planetShape(this.radius, x, y, owner);
+            this.label = planetLabel(this);
+
+            stage.addChild(this.shape);
+            stage.addChild(this.label);
+            var planet = this;
+
+            var clickable = planetClickableShape(this);
+            stage.addChild(clickable);
+
+            clickable.addEventListener("click", function (evt) {
+
+                var isRight = (evt.nativeEvent.button == 2);
+                if (isRight) {
+                    if (highlightedPlanet && highlightedPlanet.owner == ownerIndex && planet != highlightedPlanet) {
+                        if (highlightedPlanet.pop > 2) {
+                            var pop = Math.round(highlightedPlanet.pop / 2);
+                            queuedCommands.push(
+                                {
+                                    owner: ownerIndex,
+                                    pop: pop,
+                                    from: highlightedPlanet.index,
+                                    to: planet.index
+                                }
+                               );
+                            showOrderStart(highlightedPlanet.x, highlightedPlanet.y, highlightedPlanet.radius, ownerIndex);
+                        }
+
+                    }
+                }
+                else {
+                    if (planet.owner == ownerIndex) {
+                        stage.removeChild(highlight);
+                        highlight = highlightShape(planet);
+                        stage.addChild(highlight);
+                        highlightedPlanet = planet;
+                    }
+
+                }
+            }, false);
+
+        }
+
+        function Fleet(pop, startPlanet, destination, owner) {
+            this.pop = pop;
+            this.owner = owner;
+            this.destination = destination;
+            var xdist = destination.shape.x - startPlanet.shape.x;
+            var ydist = destination.shape.y - startPlanet.shape.y;
+            var angle = Math.atan(ydist / xdist);
+            if (xdist < 0) {
+                angle = angle - Math.PI;
+                //this.dx = 0 - this.dx;
+                //this.dy = 0 - this.dy;
+            }
+            this.dx = globalscale * Math.cos(angle) * fleetspeed * 1000  / ticksPerTurn;
+            this.dy = globalscale * Math.sin(angle) * fleetspeed * 1000 / ticksPerTurn;
+            console.log(this.dx);
+            console.log(globalscale);
+
+            this.shape = fleetShape(Math.sqrt(pop), startPlanet.shape.x, startPlanet.shape.y, owner, angle);
+            this.path = fleetPath(startPlanet.shape.x, startPlanet.shape.y, destination.shape.x, destination.shape.y, owner);
+
+
+            stage.addChild(this.shape);
+            stage.addChild(this.path);
+        }
+
+
+        // COMMS WITH SERVER
+        var queuedCommands = [];
+        var incomingCommands = [];
+
+        function handleIncoming(commands) {
+            var c;
+            for (idx in commands) {
+                c = commands[idx];
+                var fromPlanet = planets[c.from];
+                var toPlanet = planets[c.to];
+                var pop = c.pop;
+
+                if (fromPlanet.pop >= pop && fromPlanet.owner == c.owner) {
+                    var f = new Fleet(pop, fromPlanet, toPlanet, c.owner);
+                    fleets.push(f);
+                    fromPlanet.pop -= pop;
+                    console.log('created fleet ' + tickInTurn);
+                }
+            }
+            tickInTurn = 0;
+        }
+
+// GAME TIMING AND MECHANICS
+
+        
+        var tickInTurn = 0;
+
+
+        var planets = [];
+        var fleets = [];
+
+        var stage;
+        var globalscale;
+        var xbound, ybound;
+        var ownercolours = ['#ffffff', '#ff9999', '#99ff99', '#9999ff'];
+
+        var ownerIndex = 1;
+
+        function newScaledShape() {
+            var shape = new createjs.Shape();
+            shape.scaleX = globalscale;
+            shape.scaleY = globalscale;
+            return shape;
+        }
+
+        function planetLabel(planet) {
+            var txt = new createjs.Text(Math.round(planet.pop), "16px arial", ownercolours[planet.owner]);
+            txt.scaleX = globalscale;
+            txt.scaleY = globalscale;
+            return txt;
+        }
+
+        function planetShape(size, x, y, owner) {
+            var circle = new createjs.Shape();
+            circle.graphics.setStrokeStyle(3*globalscale);
+            circle.graphics.beginStroke(ownercolours[owner]).drawCircle(0, 0, size - 3*globalscale);
+            circle.x = x;
+            circle.y = y;
+            return circle;
+        }
+
+        function planetClickableShape(planet) {
+            var circle = new createjs.Shape();
+            //circle.graphics.setStrokeStyle(3 * globalscale);
+            circle.graphics.beginFill(ownercolours[planet.owner])
+            .drawCircle(0, 0, planet.radius + 5);
+            circle.alpha = .01;
+            circle.x = planet.x;
+            circle.y = planet.y;
+            return circle;
+        }
+
+        function highlightShape(planet) {
+            var circle = new createjs.Shape();
+            circle.graphics.setStrokeStyle(12 * globalscale);
+            //circle.graphics.beginFill(ownercolours[planet.owner])
+            //.drawCircle(0, 0, planet.radius - 8*globalscale);
+            circle.graphics.beginStroke(ownercolours[planet.owner]).drawCircle(0, 0, planet.radius - 3*globalscale);
+            circle.alpha = .5;
+            circle.x = planet.x;
+            circle.y = planet.y;
+            return circle;
+        }
+
+        function fleetShape(scale, x, y, owner, angle) {
+            var shape = newScaledShape();
+            shape.scaleX = globalscale * scale;
+            shape.scaleY = globalscale * scale;
+            shape.graphics.setStrokeStyle(1 + .3 * scale, 'butt', 'round', 0, true);
+            shape.graphics.beginStroke(ownercolours[owner]);
+            shape.graphics.moveTo(1, 0);
+            shape.graphics.lineTo(0, 3);
+            shape.graphics.lineTo(-1, 0);
+            shape.graphics.lineTo(1, 0).lineTo(0, 3);
+            shape.regX = 0;
+            shape.regY = 1;
+            shape.x = x;
+            shape.y = y;
+            shape.rotation = 0 - 90 + angle * 180 / Math.PI;
+            //shape.rotation += 0 - 90 - angle * 180/ Math.PI;
+            return shape;
+        }
+
+        function fleetPath(x1, y1, x2, y2, owner) {
+            var shape = new createjs.Shape();
+            shape.graphics.setStrokeStyle(3);
+            shape.graphics.beginStroke(ownercolours[owner]);
+            shape.graphics.moveTo(0, 0);
+            shape.graphics.lineTo(x2 - x1, y2 - y1);
+            shape.alpha = .3;
+            shape.x = x1;
+            shape.y = y1;
+            return shape;
+        }
+
+        function bg() {
+            var bg = new createjs.Shape();
+            bg.scaleX = 1;
+            bg.scaleY = 1;
+            bg.graphics.beginFill("#000000").drawRect(0, 0, xbound, ybound);
+            bg.x = 0;
+            bg.y = 0;
+            return bg;
+        }
+
+        function processGameBoard(planetArray)
+        {
+            for (idx in planetArray) {
+                var j = planetArray[idx];
+                var p = new Planet(j.growth, j.x * globalscale*10, j.y * globalscale*10, j.pop, j.owner);
+                planets.push(p);
+            }
+        }
+
+        function generateGameBoard()
+        {
+            function overlap(obj) {
+                var gap = .5;
+                for (idx in planetArray) {
+                    var p = planetArray[idx];
+                    if (p.x - p.radius - gap < obj.x + obj.radius && p.x + p.radius + gap > obj.x - obj.radius) {
+                        if (p.y - p.radius - gap < obj.y + obj.radius && p.y + p.radius + gap > obj.y - obj.radius) {
+                            return true;
+                        }
+                    }
+                }
+                return false;
+            }
+
+            planetArray = [];
+            var newPlanet;
+            for (i = 1; i <= numPlayers;i++)
+            {
+                var growth = 4;
+                var canadd = false;
+                var tries = 0;
+                while (!canadd)
+                {
+                    var radius = Math.sqrt(growth) * planetradiuspercent;
+                    newPlanet =
+                    {
+                        owner: i,
+                        x: Math.random() * (100 - radius * 2) + radius,
+                        y: Math.random() * (50 - radius * 2) + radius,
+                        pop: 100,
+                        growth: growth,
+                        radius: radius
+                    };
+                    canadd = !overlap(newPlanet);
+                    if (!canadd)
+                    {
+                        //console.log(newPlanet);
+                    }
+                    tries++;
+                    if(tries > 100)
+                    {
+                        alert('can\'t find a place to add new planet.  too many planets');
+                        return;
+                    }
+                }
+                planetArray.push(newPlanet);
+            }
+            var growth = 2;
+            var numNeutrals = numPlayers * (planetsPerPlayer - 1);
+            //console.log(numNeutrals);
+            for (i = 0; i < numNeutrals;i++) {
+                if (i * 2 > numNeutrals)
+                    growth = 1;
+                var canadd = false;
+                var tries = 0;
+                while (!canadd) {
+                    var radius =  Math.sqrt(growth) * planetradiuspercent;
+                    newPlanet =
+                    {
+                        owner: 0,
+                        x: Math.random()*(100-radius*2) + radius,
+                        y: Math.random()*(50-radius*2) + radius,
+                        pop: growth*neutralPlanetCost + Math.random() * growth*neutralPlanetCost,
+                        growth: growth,
+                        radius:radius
+                    };
+                    canadd = !overlap(newPlanet);
+                    if (!canadd) {
+                        //console.log(newPlanet);
+                    }
+                    tries++;
+                    if (tries > 100) {
+                        alert('can\'t find a place to add new planet.  too many planets');
+                        return;
+                    }
+                }
+                planetArray.push(newPlanet);
+            }
+            //console.log(planetArray);
+            return planetArray;
+
+        }
+
+        function init() {
+            
+
+            document.getElementById("PalCanvas").addEventListener('contextmenu', function (e) {
+                if (e.button === 2) {
+                    e.preventDefault();
+                    return false;
+                }
+            }, false);
+            document.getElementById("PalCanvas").setAttribute('width', window.innerWidth - 1);
+            document.getElementById("PalCanvas").setAttribute('height', window.innerWidth / 2);
+            xbound = document.getElementById("PalCanvas").width;
+            ybound = document.getElementById("PalCanvas").height;
+            globalscale = xbound / 1000;
+            planetRadiusPixels = planetradiuspercent * globalscale * 10;
+
+
+            
+            var planetsData = generateGameBoard();
+
+            
+
+
+            // code here.
+            stage = new createjs.Stage("PalCanvas");
+            stage.update();
+            stage.addChild(bg());
+
+
+            // must be after setting globalscale and initing stage:
+            processGameBoard(planetsData);
+
+            //var p = new Planet(1, 50, 50, 101.3, 0);
+            //planets.push(p);
+            //p = new Planet(2, 600, 140, 5, 1);
+            //planets.push(p);
+            //p = new Planet(4, 510, 210, 50, 0);
+            //planets.push(p);
+
+            //var f = new Fleet(15, planets[2], planets[1], 0);
+            //fleets.push(f);
+
+            //f = new Fleet(3, planets[1], planets[0], 1);
+            //fleets.push(f);
+            //f = new Fleet(80, planets[1], planets[2], 1);
+            //fleets.push(f);
+
+            createjs.Ticker.setFPS(ticksPerTurn / msPerTurn * 1000);
+            createjs.Ticker.addEventListener("tick", handleTick);
+
+        }
+
+        function updatePlanet(p) {
+            if (p.owner > 0) {
+                p.pop += p.growth * growthrate / ticksPerTurn / 10;
+            }
+                var newText = Math.round(p.pop);
+                if (newText != p.label.text) {
+                    p.label.text = newText;
+                }
+                p.label.x = p.x - globalscale* p.label.getBounds().width / 2 - globalscale;
+                p.label.y = p.y - globalscale * p.label.getMeasuredHeight() / 2 - globalscale;
+            
+        }
+
+        function moveFleet(f, idx) {
+            if (f != null) {
+                var distToGo = Math.sqrt(Math.pow((f.shape.x - f.destination.shape.x), 2) + Math.pow((f.shape.y - f.destination.shape.y), 2));
+                if (distToGo < f.destination.radius * globalscale) {
+                    //console.log(distToGo);
+                    land(f);
+                    fleets[idx] = null;
+                    stage.removeChild(f.path);
+                    stage.removeChild(f.shape);
+                }
+                else {
+                    f.shape.x += f.dx;
+                    f.shape.y += f.dy;
+                    //createjs.Tween.get(f.shape)
+                    //.to({ x: f.shape.x + f.dx, y: f.shape.y + f.dy }, msPerTurn / ticksPerTurn);
+                }
+            }
+        }
+
+        function showOrderStart(x, y, radius, owner) {
+            var circle =  new createjs.Shape();
+            circle.graphics.setStrokeStyle(8 * globalscale);
+            circle.graphics.beginStroke(ownercolours[owner]).drawCircle(0, 0, radius-3);
+            circle.x = x;
+            circle.y = y;
+            circle.scaleX = 1;
+            circle.scaleY = 1;
+            circle.alpha = .7;
+            stage.addChild(circle);
+            createjs.Tween.get(circle)
+                    .to({ scaleX: 0, scaleY: 0 }, msPerTurn * 2);
+            //                    .to({ scaleX: 1, scaleY: 1, alpha: 0 }, msPerTurn * 2, createjs.Ease.quintOut);
+            console.log('showed start animation ' + tickInTurn);
+        }
+
+        function showExplosion(x, y, size, owner, timeScale, noBrightPatch) {
+            if (!timeScale)
+                timeScale = 1;
+            //console.log(size);
+            var circle = new createjs.Shape();
+            circle.graphics.setStrokeStyle(10 * globalscale);
+            circle.graphics.beginFill(ownercolours[owner]).drawCircle(0, 0, 5 + size * 2);
+            circle.x = x;
+            circle.y = y;
+            circle.scaleX = .1;
+            circle.scaleY = .1;
+            circle.alpha = 1;
+            stage.addChild(circle);
+            
+            var tween = createjs.Tween.get(circle);
+            if (!noBrightPatch) {
+                tween.to({ scaleX: .3, scaleY: .3 }, msPerTurn * .15 * timeScale);
+            }
+            tween.to({ scaleX: 1, scaleY: 1, alpha: 0 }, msPerTurn * 2 * timeScale, createjs.Ease.quintOut);
+        }
+
+        function land(f) {
+
+            showExplosion(f.shape.x, f.shape.y, f.shape.scaleX, f.owner);
+
+            if (f.owner != f.destination.owner) {
+
+                //console.log(f.destination);
+                f.destination.pop -= f.pop;
+                if (f.destination.pop < 0) {
+                    var p = f.destination;
+                    showExplosion(p.x, p.y, p.radius * 3, p.owner, 2, true);
+                    var ex = p.x;
+                    var ey = p.y;
+                    var er = p.radius * 3;
+                    var fowner = f.owner;
+                    setTimeout(function () {
+                        showExplosion(ex, ey, er, fowner, 2, true);
+                    }, 200);
+                    
+                    //console.log(p.pop);
+                    p.pop = 0 - p.pop;
+                    //console.log(p.pop);
+                    p.owner = f.owner;
+                    stage.removeChild(p.shape);
+                    stage.removeChild(p.label);
+                    p.shape = planetShape(p.radius, p.x, p.y, p.owner);
+                    p.label = planetLabel(p);
+                    //console.log(p);
+                    stage.addChild(p.shape);
+                    stage.addChild(p.label);
+
+                    
+
+                }
+            }
+            else {
+                f.destination.pop += f.pop;
+            }
+
+        }
+
+
+        function handleTick(event) {
+            // Actions carried out each tick (aka frame)
+            if (!event.paused) {
+                // Actions carried out when the Ticker is not paused.
+                tickInTurn++;
+                if (tickInTurn >= ticksPerTurn) {
+                    // todo
+                    handleIncoming(queuedCommands);
+                    queuedCommands = [];
+                }
+                else {
+                    for (f in fleets) {
+                        moveFleet(fleets[f], f);
+                    }
+                    for (p in planets) {
+                        updatePlanet(planets[p]);
+                    }
+
+                    stage.update();
+                }
+            }
+        }
+    </script>
+
+</head>
+<body onload="init();" style="margin:0; background-color:#440066">
+    <canvas id="PalCanvas" width="1" height="1"></canvas>
+    <div id="playersLabel" style="color:white">Players: 0</div>
+    <button id="btnStart" style="display:none" onclick="startGame">START GAME</button>
+</body>
+</html>
+
+
+
+<!--function init() {
+  var stage = new createjs.Stage("demoCanvas");
+  var circle = new createjs.Shape();
+  circle.graphics.beginFill("Crimson").drawCircle(0, 0, 50);
+  circle.x = 100;
+  circle.y = 100;
+  stage.addChild(circle);
+  createjs.Tween.get(circle, {loop: true})
+    .to({x: 400}, 1000, createjs.Ease.getPowInOut(4))
+    .to({alpha: 0, y: 75}, 500, createjs.Ease.getPowInOut(2))
+    .to({alpha: 0, y: 125}, 100)
+    .to({alpha: 1, y: 100}, 500, createjs.Ease.getPowInOut(2))
+    .to({x: 100}, 800, createjs.Ease.getPowInOut(2));
+  createjs.Ticker.setFPS(60);
+  createjs.Ticker.addEventListener("tick", stage);
+}-->
