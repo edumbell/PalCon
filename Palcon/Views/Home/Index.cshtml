@@ -305,7 +305,7 @@
 
             this.shape = fleetShape(Math.sqrt(pop), startPlanet.shape.x, startPlanet.shape.y, owner, angle);
             this.path = fleetPath(startPlanet, destination, owner);
-
+            this.size = Math.sqrt(pop);
 
             stage.addChild(this.shape);
             stage.addChild(this.path);
@@ -352,7 +352,7 @@
         var stage;
         var globalscale;
         var xbound, ybound;
-        var ownercolours = ['#dddddd', '#ffdd00', '#ff5555', '#66ddee', '#50f050', '#8899ff', '#ff00ff'];
+        var ownercolours = ['#dddddd', '#ffd400', '#ff6655', '#66ddee', '#50f050', '#8899ff', '#ff00ff', '#aacc00','#ffffff'];
 
         var ownerIndex = null;
 
@@ -417,34 +417,45 @@
             return circle;
         }
 
-        function fleetShape(scale, x, y, owner, angle) {
+        function fleetShape(size, x, y, owner, angle) {
             var col = ownercolours[owner];
+            var container = new createjs.Container();
+            var shape = new createjs.Shape();
+            var shapeNoShadow = new createjs.Shape();
+            container.addChild(shape);
+            container.addChild(shapeNoShadow);
 
-            var shape = newScaledShape();
-            shape.scaleX = shape.scaleY = globalscale * scale * .7 + 1.5;
+            container.scaleX = container.scaleY = globalscale * size * .7 + 1.5;
              
             
-            shape.graphics.setStrokeStyle(1 + .1 * scale, 'butt', 'round', 0, true);
+            //shape.graphics.setStrokeStyle(1 + .1 * scale * globalscale, 'butt', 'round', 0, true);
+            //shape.graphics.beginStroke(col);
             shape.graphics.beginFill(col);
-            shape.graphics.beginStroke(col);
+            
             shape.graphics.moveTo(1, 2);
+            shape.graphics.lineTo(-.7, .3);
             shape.graphics.lineTo(-.5, 0);
+            
             shape.graphics.lineTo(1, .5);
             shape.graphics.lineTo(2.5, 0);
+            shape.graphics.lineTo(2.7, .3);
             shape.graphics.lineTo(1, 2);
             
             shape.graphics.endStroke();
-            
+            shape.graphics.endFill();
             shape.graphics.beginRadialGradientFill([col, "#000"], [0, 1],
             -5, 0, 7,-5.5,0,4).drawEllipse(0, 0, 2,3);
             
-            shape.graphics.beginLinearGradientFill([col, "#fff"], [1,0], -1, 2.5, 1.5, 2.5)
+            shape.shadow = new createjs.Shadow("#000000", 5, 5, globalscale * (10 + size / 2));
+
+            shapeNoShadow.graphics.beginLinearGradientFill([col, "#fff"], [1,0], -1, 2.5, 1.5, 2.5)
             //shape.graphics.beginRadialGradientFill(["#000","#000", col,"#fff"], [0,.4,.8, 1],
             //1, 2.2, 2,
             // 1.3, 2.5, .02).drawEllipse(.4, 1.5, 1.2, 1.7);
             .drawEllipse(.4, 1.2, 1.2, 1.2);
             //.drawEllipse(-10, -10, 20, 40);
 
+            
 
 
             //shape.graphics.beginLinearGradientFill([col,col, "#ffffff",col, "#000000"], [0,.3,.3,.45, 1], 4, -1, -2, 3);
@@ -474,13 +485,15 @@
             //shape.graphics.lineTo(2, 0).lineTo(0, 3);
 
 
-            shape.regX = 1;
-            shape.regY = 1.5;
-            shape.x = x;
-            shape.y = y;
-            shape.rotation = 0 - 90 + angle * 180 / Math.PI;
+            container.regX = 1;
+            container.regY = 1.5;
+            container.x = x;
+            container.y = y;
+            container.rotation = angle * 180 / Math.PI - 90;
+            if (container.rotation < 0)
+                container.rotation += 360;
             //shape.rotation += 0 - 90 - angle * 180/ Math.PI;
-            return shape;
+            return container;
         }
 
         function drawSurfacePath(planet1, planet2, shape)
@@ -713,7 +726,7 @@
                     land(f);
                     fleets[idx] = null;
                     stage.removeChild(f.path);
-                    stage.removeChild(f.shape);
+                    
                 }
                 else {
                     f.shape.x += f.dx;
@@ -762,9 +775,12 @@
 
         function land(f) {
 
-            showExplosion(f.shape.x, f.shape.y, f.shape.scaleX, f.owner);
+            
 
             if (f.owner != f.destination.owner) {
+
+                showExplosion(f.shape.x, f.shape.y, f.shape.scaleX, f.owner);
+                stage.removeChild(f.shape);
                 var damage = f.pop * attackRatio;
                 if (f.destination.pop >= damage) {
                     f.destination.pop -= damage;
@@ -798,7 +814,30 @@
                 }
             }
             else {
-                f.destination.pop += f.pop;
+
+                var tween = createjs.Tween.get(f.shape);
+                targetx = (f.shape.x*2 + f.destination.x) / 3;
+                targety = (f.shape.y*2 + f.destination.y) / 3 ;
+
+
+                if (f.shape.rotation + Math.random() * 100 - 50 < 180)
+                    rotate = 270  + Math.random() * 50 - 25;
+                else
+                    rotate = 90 + Math.random() * 50 - 25;
+                
+                var moreRotate = rotate + (rotate - f.shape.rotation) / 2;
+                tween.to({ rotation: rotate, y: targety, x: targetx }, msPerTurn )
+                .to({ rotation: moreRotate, scaleX: f.shape.scaleX / 5.5, scaleY: f.shape.scaleY / 4, y: targety + f.size / 3 + 2 }, msPerTurn * 4, createjs.Ease.cubicOut);
+
+                setTimeout(function () {
+                    stage.removeChild(f.shape);
+                }, msPerTurn * 4)
+
+                setTimeout(function () {
+                    f.destination.pop += f.pop;
+                }, msPerTurn)
+
+                
             }
 
         }
