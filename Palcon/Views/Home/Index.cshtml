@@ -824,7 +824,10 @@
                     rotate = 270  + Math.random() * 50 - 25;
                 else
                     rotate = 90 + Math.random() * 50 - 25;
-                
+                if (rotate - f.shape.rotation > 360)
+                    rotate = rotate - 360;
+                if (rotate - f.shape.rotation < -360)
+                    rotate = rotate + 360;
                 var moreRotate = rotate + (rotate - f.shape.rotation) / 2;
                 tween.to({ rotation: rotate, y: targety, x: targetx }, msPerTurn )
                 .to({ rotation: moreRotate, scaleX: f.shape.scaleX / 5.5, scaleY: f.shape.scaleY / 4, y: targety + f.size / 3 + 2 }, msPerTurn * 4, createjs.Ease.cubicOut);
