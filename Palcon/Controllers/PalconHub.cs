@@ -78,7 +78,9 @@ namespace Palcon.Controllers
                     {
                         Clients.Client(p.ConnectionId).checkReadyToStart();
                     }
-                    System.Threading.Thread.Sleep(1000);
+                    System.Threading.Thread.Sleep(1500);
+                    var initiatingPlayer = game.Players.Where(x => x.ConnectionId == Context.ConnectionId).Single();
+                    initiatingPlayer.IsReadyToStart = true; // need to assume this, as websockets(?) doesn't allow two connections?
                     game.Players = game.Players.Where(x => x.IsReadyToStart).ToList();
                     return game.Players.Count();
                 }
@@ -110,7 +112,9 @@ namespace Palcon.Controllers
 
         public void SendCommands(int gameId, string json)
         {
-            var game = Game.Games.Where(x => x.GameId == gameId).Single();
+            var game = Game.Games.Where(x => x.GameId == gameId).FirstOrDefault();
+            if (game == null)
+                return;
             var player = game.Players.Where(x => x.ConnectionId == Context.ConnectionId).Single();
             player.CurrentCommand = json;
             var allSent = game.AllCommandsIn();
