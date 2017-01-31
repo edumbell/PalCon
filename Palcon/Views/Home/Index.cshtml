@@ -309,8 +309,8 @@
 
             stage.addChild(this.shape);
             stage.addChild(this.path);
-            stage.setChildIndex(this.shape, 3);
-            stage.setChildIndex(this.path, 2);
+            //stage.setChildIndex(this.shape, 3);
+            stage.setChildIndex(this.path, 1);
         }
 
 
@@ -421,8 +421,8 @@
             var col = ownercolours[owner];
 
             var shape = newScaledShape();
-            shape.scaleX = globalscale * scale*.5 + 1;
-            shape.scaleY = globalscale * scale*.5 + 1;
+            shape.scaleX = shape.scaleY = globalscale * scale * .7 + 1.5;
+             
             
             shape.graphics.setStrokeStyle(1 + .1 * scale, 'butt', 'round', 0, true);
             shape.graphics.beginFill(col);
