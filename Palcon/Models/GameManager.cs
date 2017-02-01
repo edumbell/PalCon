@@ -44,7 +44,7 @@ namespace Palcon.Models
                 {
                     if (p.LagScore > 0)
                         p.LagScore -= 1;
-                    result += p.CurrentCommand.Trim('[').Trim(']');
+                    result += p.CurrentCommand.Trim('[').Trim(']') + ",";
                 }
                 else
                 {
@@ -54,6 +54,7 @@ namespace Palcon.Models
                 }
                 p.CurrentCommand = null;
             }
+            result = result.Trim(',');
             return "{\"turnId\":" + turnId.ToString() + ",\"commands\": [" + result + "]}";
         }
     }
