@@ -64,9 +64,10 @@
         var test;
         var keys = [];
         var keyconst = {};
-        keyconst.ctrl = 17;
-        keyconst.z = 90;
-        keyconst.x = 88;
+
+        keyconst.ctrl = [17,91,224];
+        keyconst.z = [90];
+        keyconst.x = [88];
         $(function () {
             myHub = $.connection.palconHub;
 
@@ -140,10 +141,10 @@
                 function (e) {
                     keys[e.which] = true;
 
-                    if (e.which == keyconst.x) {
+                    if (e.which == keyconst.x[0]) {
                         cancelRecurringOrders();
                     }
-                    if (e.which == keyconst.z) {
+                    if (e.which == keyconst.z[0]) {
                         e.preventDefault();
                     }
                 }
@@ -189,7 +190,10 @@
 
 
         function isPressed(which) {
-            return keys[which];
+            for (code in which) {
+                if (keys[which[code]])
+                    return true;
+            }
         }
 
         function sendSettings() {
@@ -495,7 +499,7 @@
                     fleets.push(f);
                     fromPlanet.pop -= pop;
 
-                    if (toPlanet.owner == ownerIndex)
+                    if (toPlanet.owner == ownerIndex && fromPlanet.owner != ownerIndex)
                     {
                         var s = sound_warning.play();
                         sound_warning.stereo(fromPlanet.x / xbound * 2 - 1, s);
@@ -1045,7 +1049,7 @@
                     //sound_conquer.stereo(1);
                     var s = sound_conquer.play();
                     sound_conquer.stereo(p.x / xbound * 2 - 1, s);
-                    sound_conquer.rate(1.7 - p.growth*.25, s);
+                    sound_conquer.rate(2 - p.growth*.25, s);
 
                 }
             }
