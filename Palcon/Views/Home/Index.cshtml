@@ -33,6 +33,7 @@
     margin:5px;
     border-radius:5px;
     color:#bbb;
+    background-color:black;
 }
         #instructions span {
             margin-left: 12px;
@@ -49,8 +50,13 @@
     <script src="/Scripts/jquery-1.10.2.min.js"></script>
     <script src="/Scripts/jquery.signalR-2.1.2.min.js"></script>
     <script src="/signalr/hubs"></script>
+    <script src="~/Scripts/howler.js"></script>
 
     <script src="https://code.createjs.com/createjs-2015.11.26.min.js"></script>
+
+
+
+
     <script>
 
         // SIGNALR
@@ -71,7 +77,7 @@
 
             myHub.client.joinSuccess = function (aGameId) {
                 gameId = aGameId;
-                $("#btnStart").show();
+                $("button").css('visibility', 'visible');
                 showSettings();
             }
 
@@ -150,6 +156,35 @@
                     }
                 }
             );
+
+            var context;
+            try {
+                // Fix up for prefixing
+                window.AudioContext = window.AudioContext || window.webkitAudioContext;
+                context = new AudioContext();
+            }
+            catch (e) {
+                alert('Web Audio API is not supported in this browser');
+            }
+            sound_conquer = new Howl({
+                src: ['/content/nff-timpani-low.wav']
+            });
+            sound_warning = new Howl({
+                src: ['/content/nff-pick.wav'],
+                volume:.2
+            });
+            sound_attack = new Howl({
+                src: ['/content/blop.mp3']
+            });
+            
+
+            //var sound_conquer = new Howl({
+            //    src: ['/content/nff-timpani-low.wav'],
+            //    volume: 0.5
+            //});
+            //sound_conquer.play();
+            //sound_conquer.stereo(0);
+
         });
 
 
@@ -226,6 +261,10 @@
 
         var layers = {};
 
+
+        var sound_conquer;
+        var sound_attack;
+        var sound_warning;
 
         function startSendPercentBar(destPlanet) {
             if (!highlightedPlanets.length)
@@ -455,6 +494,21 @@
                     var f = new Fleet(pop, fromPlanet, toPlanet, c.owner);
                     fleets.push(f);
                     fromPlanet.pop -= pop;
+
+                    if (toPlanet.owner == ownerIndex)
+                    {
+                        var s = sound_warning.play();
+                        sound_warning.stereo(fromPlanet.x / xbound * 2 - 1, s);
+                        var rate = 1.7 - Math.sqrt(pop) / 10;
+                        if (rate < .7)
+                            rate = .7;
+                        var volume = Math.sqrt(pop+10) / 10 - .3;
+                        if (volume > 1)
+                            volume = 1;
+                        sound_warning.rate(rate, s);
+                        sound_warning.volume(volume, s);
+                    }
+
                 }
                 else {
                     console.log('no pop or planet changed hands');
@@ -547,15 +601,12 @@
 
         function highlightShape(planet) {
             var circle = new createjs.Shape();
-            var width = 6 * globalscale;
+            var width = 8 * globalscale;
             circle.graphics.setStrokeStyle(width);
-
-            //circle.graphics.beginFill(ownercolours[planet.owner])
-            //.drawCircle(0, 0, planet.radius - 8*globalscale);
             circle.graphics.beginStroke(ownercolours[planet.owner]).drawCircle(0, 0, planet.radius);
-            circle.graphics.setStrokeStyle(1.5 * globalscale);
-            circle.graphics.beginStroke("#fff").drawCircle(0, 0, planet.radius + width/2);
-            circle.alpha = .7;
+            //circle.graphics.setStrokeStyle(1.5 * globalscale);
+            //circle.graphics.beginStroke("#fff").drawCircle(0, 0, planet.radius + width/2);
+            circle.alpha = .8;
             circle.x = planet.x;
             circle.y = planet.y;
             return circle;
@@ -590,7 +641,7 @@
             shape.graphics.beginRadialGradientFill([col, "#000"], [0, 1],
             -5, 0, 7, -5.5, 0, 4).drawEllipse(0, 0, 2, 3);
 
-            shape.shadow = new createjs.Shadow("#000000", 2 + size * globalscale / 5, 2 + size * globalscale / 5, globalscale * (10 + size / 2));
+            shape.shadow = new createjs.Shadow("#000000", 3 + size * globalscale / 10, 3 + size * globalscale / 10, globalscale * (10 + size));
 
             shapeNoShadow.graphics.beginLinearGradientFill([col, "#fff"], [1, 0], -1, 2.5, 1.5, 2.5)
             //shape.graphics.beginRadialGradientFill(["#000","#000", col,"#fff"], [0,.4,.8, 1],
@@ -941,19 +992,32 @@
         function land(f) {
 
 
-
+            var p = f.destination;
+            var pop = f.pop;
             if (f.owner != f.destination.owner) {
-
+                
                 showExplosion(f.shape.x, f.shape.y, f.shape.scaleX, f.owner);
                 layers.ships.removeChild(f.shape);
                 var damage = f.pop * attackRatio;
                 if (f.destination.pop >= damage) {
                     f.destination.pop -= damage;
+
+                    var s = sound_attack.play();
+                    sound_attack.stereo(p.x / xbound * 2 - 1, s);
+                    var rate = 2 - Math.sqrt(pop) * .15;
+                    if (rate < .5)
+                        rate = .5;
+                    var volume = Math.sqrt(pop+10) / 10 - .3;
+                    if (volume > 1)
+                        volume = 1;
+                    sound_attack.rate(rate, s);
+                    sound_attack.volume(volume, s);
+
                 }
                 else {
                     fleetLoss = f.destination.pop / attackRatio;
                     f.destination.pop = f.pop - fleetLoss;
-                    var p = f.destination;
+
                     showExplosion(p.x, p.y, p.radius * 3, p.owner, 2, true);
                     var ex = p.x;
                     var ey = p.y;
@@ -978,7 +1042,10 @@
                     layers.planets.addChild(p.shape);
                     layers.planets.addChild(p.label);
 
-
+                    //sound_conquer.stereo(1);
+                    var s = sound_conquer.play();
+                    sound_conquer.stereo(p.x / xbound * 2 - 1, s);
+                    sound_conquer.rate(1.7 - p.growth*.25, s);
 
                 }
             }
@@ -1127,7 +1194,7 @@
         <br /><br />
         Suggestion: Before starting, hit <b>F11</b> to go fullscreen</span>
         <br /><br/>
-        <button id="btnStart" style="display:hidden" onclick="startGame();">START GAME</button>
+        <button id="btnStart" style="visibility:hidden" onclick="startGame();">START GAME</button>
         <hr />
         <div class="rows">
             <div>
@@ -1151,12 +1218,12 @@
                 <input id="attack" />
             </div>
             <label></label>
-            <button id="btnSettings" onclick="sendSettings();">UPDATE SETTINGS</button>
+            <button style="visibility:hidden" id="btnSettings" onclick="sendSettings();">UPDATE SETTINGS</button>
         </div>
         <hr />
 
     </div>
-    <div id="instructions" style="color:white; background-color:black">
+    <div id="instructions" style="">
 
         <div style="float:left">
             <label>Select planets:</label><span>click / ctrl-click</span>
