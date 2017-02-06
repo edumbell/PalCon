@@ -103,7 +103,7 @@
             myHub = $.connection.palconHub;
 
             myHub.client.playerJoined = function (newNumPlayers) {
-                playSound(sound_land, 0, 0.5, 1);
+                playSound(sound_land, 0, 0.5, .3);
                 numPlayers = newNumPlayers;
                 $("#playersLabel").html(numPlayers);
 
@@ -699,9 +699,9 @@
                             var rate = 1.7 - Math.sqrt(pop) / 10;
                             if (rate < .7)
                                 rate = .7;
-                            var volume = Math.sqrt(pop + 10) / 10 - .3;
-                            if (volume > 1)
-                                volume = 1;
+                            var volume = Math.sqrt(pop + 10) / 20 - .15;
+                            if (volume > .5)
+                                volume = .5;
                             playSound(sound_warning, fromPlanet.x, rate, volume);
                         }
                     }
@@ -1116,7 +1116,7 @@
             //f = new Fleet(80, planets[1], planets[2], 1);
             //fleets.push(f);
 
-            playSound(sound_warning, xbound / 2, .5, 1);
+            playSound(sound_warning, xbound / 2, .5, .5);
         }
 
         function startTicker() {
@@ -1254,9 +1254,9 @@
             //sound calcs
 
 
-            var volume = Math.sqrt(landPop + 10) / 10 - .3;
-            if (volume > 1)
-                volume = 1;
+            var volume = Math.sqrt(landPop + 10) / 20 - .15;
+            if (volume > .5)
+                volume = .5;
             var spotx = f.shape.x + Math.cos(Math.atan(f.dy / f.dx)) * Math.sign(f.dx) * f.distMidToFront * f.shape.scaleX;
             var spoty = f.shape.y + Math.sin(Math.atan(f.dy / f.dx)) * Math.sign(f.dx) * f.distMidToFront * f.shape.scaleX;
 
@@ -1316,7 +1316,7 @@
                     p.owner = f.owner;
                     redrawPlanet(p);
 
-                    playSound(sound_conquer, p.x, 2 - p.growth * .25, .3);
+                    playSound(sound_conquer, p.x, 2 - p.growth * .25, .15);
                     deleteFleet = true;
                     layers.fleets.removeChild(f.shape);
                 }
