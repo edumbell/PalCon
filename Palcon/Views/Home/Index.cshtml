@@ -65,15 +65,17 @@
         var keys = [];
         var keyconst = {};
 
-        keyconst.ctrl = [17,91,224];
+        keyconst.ctrl = [17,16,224]; // 91 behaves odd in win/chrome
         keyconst.z = [90];
         keyconst.x = [88];
         $(function () {
             myHub = $.connection.palconHub;
 
             myHub.client.playerJoined = function (newNumPlayers) {
+                playSound(sound_land, 0, 0.5, 1);
                 numPlayers = newNumPlayers;
                 $("#playersLabel").html(numPlayers);
+
             }
 
             myHub.client.joinSuccess = function (aGameId) {
@@ -108,13 +110,28 @@
                 //console.log('got commands on tick ' + tickInTurn);
                 //console.log(json);
                 var obj = JSON.parse(json);
-                incomingCommands = obj.commands;
+                //incomingCommands = obj.commands;
                 //console.log(incomingCommands);
-                if (obj.turnId != turnId + 1) {
-                    //alert('You seem to be out of sync with the rest of the players.  You can continue playing, but unexpected results might occur');
-                    console.log('missed turn? ' + obj.turnId + ' ' + turnId);
+                //console.log('incoming: ' + obj.turnId + ' ' + turnId);
+                if (obj.turnId == turnId + 1)
+                {
+                    incomingCommands = obj.commands;
+                    turnId++;
                 }
-                turnId = obj.turnId;
+                else if (obj.turnId > turnId + 1)
+                {
+                    //alert('You seem to be out of sync with the rest of the players.  You can continue playing, but unexpected results might occur');
+
+                    console.log('commands received in wrong order? ' + obj.turnId + ' ' + turnId);
+                    backlogIncomingCommands[obj.turnId] = obj.commands;
+                    turnId++; // seems like a whole set gets skipped for all players? - so just move on to next turn
+                }
+                else
+                {
+                    incomingCommands = obj.commands;
+                    console.log('commands received in wrong order - shouldnt be possible');
+                }
+                
                 doTick(); // if in background, ensure commands get processed soonish?
                 //handleIncoming(incomingCommands);
             }
@@ -168,13 +185,17 @@
                 alert('Web Audio API is not supported in this browser');
             }
             sound_conquer = new Howl({
-                src: ['/content/nff-timpani-low.wav']
+                //src: ['/content/nff-timpani-low.wav'],
+                src: ['/content/nff-bass-thud.wav']
             });
             sound_warning = new Howl({
                 src: ['/content/nff-pick.wav'],
                 volume:.2
             });
             sound_attack = new Howl({
+                src: ['/content/nff-laser.wav']
+            });
+            sound_land = new Howl({
                 src: ['/content/blop.mp3']
             });
             
@@ -359,7 +380,7 @@
             var sendPercentBar;
             for (var idx in sendPercentBars) {
                 sendPercentBar = sendPercentBars[idx];
-                sendPercentBar.scaleX = sendPercentBar.scaleY = sendPercent / 100;
+                sendPercentBar.scaleX = sendPercentBar.scaleY = sendPercent / 100 * globalscale;
             }
         }
 
@@ -399,21 +420,21 @@
 
                 var isRight = (evt.nativeEvent.button == 2);
                 if (isRight) {
-                    console.log('mouseup');
+                    //console.log('mouseup');
                     if (sendInProgress)
                         doSend();
                 }
             });
 
             clickable.addEventListener("mouseout", function (evt) {
-                console.log('mouseout');
+                //console.log('mouseout');
                 if (sendInProgress)
                     cancelSend();
             });
 
 
             clickable.addEventListener("mousedown", function (evt) {
-                console.log(evt);
+                //console.log(evt);
                 var isRight = (evt.nativeEvent.button == 2);
                 if (isRight) {
                     if (sendInProgress) {
@@ -470,21 +491,28 @@
             this.dy = globalscale * Math.sin(angle) * fleetspeed / 10 / ticksPerTurn;
 
             this.shape = fleetShape(Math.sqrt(pop), startPlanet.shape.x, startPlanet.shape.y, owner, angle);
+            this.distMidToFront = this.shape.scaleX * 1.5;
             this.path = fleetPath(startPlanet, destination, owner);
             this.size = Math.sqrt(pop);
-
+            this.popLandPerTurn = Math.round(this.pop / 10) + 1;
+            this.ticksToNextLanding = null;
             layers.ships.addChild(this.shape);
             layers.paths.addChild(this.path);
             //stage.setChildIndex(this.shape, 3);
             //layers.planets.setChildIndex(this.path, 1);
+
+            this.redrawScale = function(){
+                this.shape.scaleX = this.shape.scaleY = globalscale * Math.sqrt(this.pop) * .7 + 1.5;
+            }
+            this.redrawScale();
         }
 
 
         // COMMS WITH SERVER
         var recurringOrders = [];
         var queuedCommands = [];
-        var incomingCommands = [];
-
+        var incomingCommands = null;
+        var backlogIncomingCommands = [];
         function handleIncoming(commands) {
             var c;
             for (idx in commands) {
@@ -501,16 +529,14 @@
 
                     if (toPlanet.owner == ownerIndex && fromPlanet.owner != ownerIndex)
                     {
-                        var s = sound_warning.play();
-                        sound_warning.stereo(fromPlanet.x / xbound * 2 - 1, s);
+                        
                         var rate = 1.7 - Math.sqrt(pop) / 10;
                         if (rate < .7)
                             rate = .7;
                         var volume = Math.sqrt(pop+10) / 10 - .3;
                         if (volume > 1)
                             volume = 1;
-                        sound_warning.rate(rate, s);
-                        sound_warning.volume(volume, s);
+                        playSound(sound_warning, fromPlanet.x, rate, volume);
                     }
 
                 }
@@ -519,6 +545,13 @@
                 }
             }
             incomingCommands = null;
+
+            if (backlogIncomingCommands[turnId+1])
+            {
+                incomingCommands = backlogIncomingCommands[turnId + 1];
+                turnId++;
+            }
+
             //console.log('sent queue & handled incoming, tick ' + tickInTurn);
         }
 
@@ -624,7 +657,7 @@
             container.addChild(shape);
             container.addChild(shapeNoShadow);
 
-            container.scaleX = container.scaleY = globalscale * size * .7 + 1.5;
+            
 
 
             //shape.graphics.setStrokeStyle(1 + .1 * scale * globalscale, 'butt', 'round', 0, true);
@@ -715,7 +748,7 @@
             shape.graphics.lineTo(xd, yd);
             shape.x = x;
             shape.y = y;
-            console.log('drawing ' + x + ',' + y + ' to ' + xd);
+            //console.log('drawing ' + x + ',' + y + ' to ' + xd);
         }
 
         function recurringPath(recurring) {
@@ -904,6 +937,8 @@
             //fleets.push(f);
             //f = new Fleet(80, planets[1], planets[2], 1);
             //fleets.push(f);
+
+            playSound(sound_warning, xbound/2,.5,1);
         }
 
         function startTicker() {
@@ -911,6 +946,7 @@
             createjs.Ticker.setFPS(ticksPerTurn / msPerTurn * 1000);
             createjs.Ticker.addEventListener("tick", handleTick);
             timeStartTurn = new Date().getTime();
+            myHub.server.sendCommands(gameId, '[]');
         }
 
         function updatePlanet(p) {
@@ -941,16 +977,27 @@
             if (f != null) {
                 var distToGo = Math.sqrt(Math.pow((f.shape.x - f.destination.shape.x), 2) + Math.pow((f.shape.y - f.destination.shape.y), 2));
 
-                if (distToGo < f.destination.radius) {
+                if (distToGo < f.destination.radius + f.distMidToFront * f.shape.scaleX) {
+                    //f.arrived = true;
+
                     //console.log(distToGo);
-                    land(f);
-                    fleets[idx] = null;
-                    layers.paths.removeChild(f.path);
+                    if (f.ticksToNextLanding > 0) {
+                        f.ticksToNextLanding--;
+                    }
+                    else {
+                        land(f);
+                        f.ticksToNextLanding = ticksPerTurn;
+                    }
+                    
+                    //fleets[idx] = null;
+                    
 
                 }
                 else {
-                    f.shape.x += f.dx;
-                    f.shape.y += f.dy;
+
+                        f.shape.x += f.dx;
+                        f.shape.y += f.dy;
+
                     //createjs.Tween.get(f.shape)
                     //.to({ x: f.shape.x + f.dx, y: f.shape.y + f.dy }, msPerTurn / ticksPerTurn);
                 }
@@ -993,32 +1040,74 @@
             tween.to({ scaleX: 1, scaleY: 1, alpha: 0 }, msPerTurn * 2 * timeScale, createjs.Ease.quintOut);
         }
 
+        function playSound(sound, x, rate,volume)
+        {
+            var pan = 0;
+            if (xbound)
+            {
+                pan = x / xbound * 2 - 1;
+            }
+            if (!rate)
+                rate = 1;
+            if (!volume)
+                volume = 1;
+            var s = sound.play();
+            sound.stereo(pan, s);
+            sound.rate(rate, s);
+            sound.volume(volume, s);
+        }
+
         function land(f) {
 
+            var deleteFleet;
 
             var p = f.destination;
-            var pop = f.pop;
+
+            var landPop = Math.min(f.popLandPerTurn, f.pop);
+
+            //sound calcs
+            
+
+            var volume = Math.sqrt(landPop + 10) / 10 - .3;
+            if (volume > 1)
+                volume = 1;
+            var spotx = f.shape.x + Math.cos(Math.atan(f.dy / f.dx)) * Math.sign(f.dx) * f.distMidToFront * f.shape.scaleX;
+            var spoty = f.shape.y + Math.sin(Math.atan(f.dy / f.dx)) * Math.sign(f.dx) * f.distMidToFront * f.shape.scaleX;
+
             if (f.owner != f.destination.owner) {
+                // ATTACK
                 
-                showExplosion(f.shape.x, f.shape.y, f.shape.scaleX, f.owner);
-                layers.ships.removeChild(f.shape);
-                var damage = f.pop * attackRatio;
+                var rate = 3 - 10*landPop / (f.destination.pop + 10);
+                if (rate < .5)
+                    rate = .5;
+                if (rate > 3)
+                    rate = 3;
+
+                showExplosion(spotx,spoty, f.shape.scaleX, f.owner,1);
+
+                var damage = landPop * attackRatio;
+
+
                 if (f.destination.pop >= damage) {
+
+                    playSound(sound_attack, p.x, rate/2+.25, volume);
+
+                    
+
                     f.destination.pop -= damage;
+                    f.pop -= landPop;
+                    f.redrawScale();
 
-                    var s = sound_attack.play();
-                    sound_attack.stereo(p.x / xbound * 2 - 1, s);
-                    var rate = 2 - Math.sqrt(pop) * .15;
-                    if (rate < .5)
-                        rate = .5;
-                    var volume = Math.sqrt(pop+10) / 10 - .3;
-                    if (volume > 1)
-                        volume = 1;
-                    sound_attack.rate(rate, s);
-                    sound_attack.volume(volume, s);
-
+                    if (f.pop <= 0) {
+                        deleteFleet = true;
+                        layers.ships.removeChild(f.shape);
+                    }
                 }
                 else {
+
+
+
+                    // CAPTURE PLANET AND TRANSFER REMAINING SHIPS
                     fleetLoss = f.destination.pop / attackRatio;
                     f.destination.pop = f.pop - fleetLoss;
 
@@ -1046,45 +1135,62 @@
                     layers.planets.addChild(p.shape);
                     layers.planets.addChild(p.label);
 
-                    //sound_conquer.stereo(1);
-                    var s = sound_conquer.play();
-                    sound_conquer.stereo(p.x / xbound * 2 - 1, s);
-                    sound_conquer.rate(2 - p.growth*.25, s);
+                    playSound(sound_conquer, p.x, 2 - p.growth * .25, .3);
 
+                    deleteFleet = true;
+                    layers.ships.removeChild(f.shape);
                 }
+                
             }
             else {
+                var rate = 3 - 10 * landPop / (f.destination.pop + 10);
+                if (rate < .5)
+                    rate = .5;
+                playSound(sound_land, p.x, rate, volume);
+                showExplosion(spotx, spoty, f.shape.scaleX, f.owner, 1);
+                f.destination.pop += landPop;
+                f.pop -= landPop
+                f.redrawScale();
+                
+                if (!f.landing)
+                {
+                    f.landing = true;
+                    var tween = createjs.Tween.get(f.shape);
+                    //targetx = (f.shape.x * 2 + f.destination.x) / 3;
+                    //targety = (f.shape.y * 2 + f.destination.y) / 3;
 
-                var tween = createjs.Tween.get(f.shape);
-                targetx = (f.shape.x * 2 + f.destination.x) / 3;
-                targety = (f.shape.y * 2 + f.destination.y) / 3;
+                    ////showExplosion(targetx, targety, f.shape.scaleX, f.owner);
+                    if (f.shape.rotation + Math.random() * 100 - 50 < 180)
+                        rotate = 270 + Math.random() * 50 - 25;
+                    else
+                        rotate = 90 + Math.random() * 50 - 25;
+                    if (rotate - f.shape.rotation > 360)
+                        rotate -= 360;
+                    if (rotate - f.shape.rotation < -360)
+                        rotate += 360;
+                    //var moreRotate = rotate + (rotate - f.shape.rotation) / 2;
+                    tween.to({ rotation: rotate }, msPerTurn * 2, createjs.Ease.cubicInOut)
+                    //.to({ rotation: moreRotate, scaleX: f.shape.scaleX / 5.5, scaleY: f.shape.scaleY / 4, x: targetx, y: targety + f.size / 3 + 2 }, msPerTurn * 2, createjs.Ease.cubicInOut);
 
-                showExplosion(targetx, targety, f.shape.scaleX, f.owner);
-                if (f.shape.rotation + Math.random() * 100 - 50 < 180)
-                    rotate = 270 + Math.random() * 50 - 25;
-                else
-                    rotate = 90 + Math.random() * 50 - 25;
-                if (rotate - f.shape.rotation > 360)
-                    rotate -= 360;
-                if (rotate - f.shape.rotation < -360)
-                    rotate += 360;
-                var moreRotate = rotate + (rotate - f.shape.rotation) / 2;
-                tween.to({ rotation: rotate }, msPerTurn * 2, createjs.Ease.cubicInOut)
-                .to({ rotation: moreRotate, scaleX: f.shape.scaleX / 5.5, scaleY: f.shape.scaleY / 4, x: targetx, y: targety + f.size / 3 + 2 }, msPerTurn * 2, createjs.Ease.cubicInOut);
+                    //setTimeout(function () {
+                    //    layers.ships.removeChild(f.shape);
+                    //}, msPerTurn * 4)
+                }
 
-                f.destination.pop += f.pop;
-
-                setTimeout(function () {
+                if (f.pop <= 0) {
+                    
+                    deleteFleet = true;
                     layers.ships.removeChild(f.shape);
-                }, msPerTurn * 4)
-
-                setTimeout(function () {
-
-                }, msPerTurn)
-
-
+                }
+                
             }
 
+
+            if (deleteFleet) {
+                var idx = jQuery.inArray(f, fleets);
+                fleets.splice(idx, 1);
+            }
+            layers.paths.removeChild(f.path);
         }
 
         function processRecurringOrders() {
