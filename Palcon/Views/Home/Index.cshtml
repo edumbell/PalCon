@@ -63,6 +63,7 @@
         #rightcontainer {
             float:left;
             padding:5px;
+            margin-right:-99%;
         }
 
         #controls {
@@ -71,6 +72,11 @@
             padding:5px;
             margin-right: -99%;
             width: 100%;
+        }
+
+        #controls button {
+            font-size:.85em;
+            padding:4px;
         }
 
         body {
@@ -1128,7 +1134,7 @@
             //f = new Fleet(80, planets[1], planets[2], 1);
             //fleets.push(f);
 
-            playSound(sound_warning, xbound / 2, .5, .5);
+            playSound(sound_warning, xbound / 2, .5, .4);
         }
 
         function startTicker() {
@@ -1274,9 +1280,9 @@
             //sound calcs
 
 
-            var volume = Math.sqrt(landPop + 10) / 20 - .15;
-            if (volume > .5)
-                volume = .5;
+            var volume = Math.sqrt(landPop + 10) / 10 - .3;
+            if (volume >1)
+                volume = 1;
             var spotx = f.shape.x + Math.cos(Math.atan(f.dy / f.dx)) * Math.sign(f.dx) * f.distMidToFront * f.shape.scaleX;
             var spoty = f.shape.y + Math.sin(Math.atan(f.dy / f.dx)) * Math.sign(f.dx) * f.distMidToFront * f.shape.scaleX;
 
@@ -1296,7 +1302,7 @@
 
                 if (f.destination.pop >= damage) {
 
-                    playSound(sound_attack, p.x, rate / 2 + .25, volume);
+                    playSound(sound_attack, p.x, rate / 2 + .25, volume*.35);
 
 
 
@@ -1336,7 +1342,7 @@
                     p.owner = f.owner;
                     redrawPlanet(p);
 
-                    playSound(sound_conquer, p.x, 2 - p.growth * .25, .1);
+                    playSound(sound_conquer, p.x, 2 - p.growth * .25, .06);
                     deleteFleet = true;
                     layers.fleets.removeChild(f.shape);
                 }
@@ -1550,7 +1556,7 @@
 
         </div>
         <div id="controls">
-            <button id="newgame" onclick="newGame()">New Game</button>
+            <button id="newgame" onclick="newGame()">Restart</button>
             <button id="surrender" onclick="sendSurrender()">Surrender</button>
         </div>
         <div style="clear:both"></div>
