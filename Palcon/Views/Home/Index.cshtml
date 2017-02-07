@@ -583,12 +583,14 @@
             this.growth = growth;
             this.radius = Math.sqrt(growth) * planetRadiusPixels;   // pixels
             this.shape = planetShape(this.radius, x, y, owner);
+            this.fillupContainer = new createjs.Container();
             this.label = planetLabel(this);
+            this.fullpop = growth * 100;
             this.highlight = null;
-            layers.planets.addChild(this.shape);
-            layers.planets.addChild(this.label);
+            //layers.planets.addChild(this.shape);
+            //layers.planets.addChild(this.label);
             var planet = this;
-
+            drawPlanet(planet);
             var clickable = planetClickableShape(this);
             stage.addChild(clickable);
 
@@ -754,11 +756,15 @@
         }
 
         function planetLabel(planet) {
-            var txt = new createjs.Text("_", "bold 14px arial", ownercolours[planet.owner]);
+            var col = ownercolours[planet.owner];
+            var txt = new createjs.Text("_", "bold 14px arial", col);
             txt.scaleX = globalscale;
             txt.scaleY = globalscale;
+            txt.shadow = new createjs.Shadow("#000000", 0, 0, 3);
             return txt;
         }
+
+
 
         function planetShape(size, x, y, owner) {
 
@@ -799,6 +805,32 @@
             return shape;
         }
 
+        function planetFillup(planet) {
+            var container = new createjs.Container();
+            var col = ownercolours[planet.owner];
+            var shape = new createjs.Shape();
+            var line = new createjs.Shape();
+            //shape.scaleX = shape.scaleY = 1;
+            var size = planet.radius-2 * globalscale
+            var y = size * (1 - Math.min(2, (planet.pop * 2 / planet.fullpop))) + globalscale;
+            shape.graphics.beginLinearGradientFill(["transparent", col,col, "transparent"], [0, .01, .2, .6], 0, y - 1*globalscale, 0, y + size*2);
+            //shape.graphics.beginFill(ownercolours[planet.owner]);
+            shape.graphics.drawCircle(0, 0, planet.radius - 1 * globalscale);
+            shape.graphics.endFill();
+            if (y > 0-size) {
+                line.graphics.setStrokeStyle(1, 'butt', 'round', 0);
+                line.graphics.beginStroke(col)
+                line.graphics.moveTo(0 - Math.sqrt(size * size - y * y), y);
+                line.graphics.lineTo(Math.sqrt(size * size - y * y), y);
+            }
+            container.x = planet.x;
+            container.y = planet.y;
+            shape.alpha = .5;
+            container.addChild(shape);
+            container.addChild(line);
+            return container;
+        }
+
         function planetClickableShape(planet) {
             var circle = new createjs.Shape();
             //circle.graphics.setStrokeStyle(3 * globalscale);
@@ -811,13 +843,19 @@
         }
 
         function highlightShape(planet) {
+            
+            var col = [ownercolours[ownerIndex]];
             var circle = new createjs.Shape();
-            var width = 8 * globalscale;
+            var width = 11 * globalscale;
             circle.graphics.setStrokeStyle(width);
-            circle.graphics.beginStroke(ownercolours[planet.owner]).drawCircle(0, 0, planet.radius);
+            circle.graphics.beginRadialGradientStroke( ["transparent","#fff",col,"transparent"], [0,.2, .5,1],
+                0, 0, planet.radius,
+             0,0,planet.radius + 11*globalscale)
+            //circle.graphics.beginStroke("#FFF")
+            .drawCircle(0, 0, planet.radius + 5*globalscale);
             //circle.graphics.setStrokeStyle(1.5 * globalscale);
             //circle.graphics.beginStroke("#fff").drawCircle(0, 0, planet.radius + width/2);
-            circle.alpha = .8;
+            circle.alpha = .66;
             circle.x = planet.x;
             circle.y = planet.y;
             return circle;
@@ -1153,22 +1191,28 @@
         function updatePlanet(p) {
 
             if (p.owner > 0) {
-                if (p.pop < p.growth * 100) {
+                if (p.pop < p.fullpop) {
                     p.pop += p.growth * growthrate / ticksPerTurn / 500;
                 }
 
             }
-            var isOverpopulated = p.pop > p.growth * 100 - 1; // 1 wiggle room for rounding because using test to check
+            var isOverpopulated = p.pop > p.fullpop - 1; // 1 wiggle room for rounding because using test to check
+            //var isOverpopulated = p.pop > p.fullpop - 1;
             var newText = Math.round(p.pop);
 
             if (newText != p.label.text) {
                 if (isOverpopulated)
-                    p.label.color = "#bbbbbb"
+                    p.label.color = "#bbb"
                 else
                     p.label.color = ownercolours[p.owner];
                 p.label.text = newText;
+                
                 p.label.x = p.x - globalscale * p.label.getBounds().width / 2;
-                p.label.y = p.y - globalscale * p.label.getMeasuredHeight() / 2;
+                p.label.y = p.y - globalscale * p.label.getBounds().height / 2;
+
+                p.fillupContainer.removeChild(p.fillup);
+                p.fillup = planetFillup(p);
+                p.fillupContainer.addChild(p.fillup);
             }
 
 
@@ -1211,8 +1255,8 @@
             circle.graphics.beginStroke(ownercolours[owner]).drawCircle(0, 0, radius - 3);
             circle.x = x;
             circle.y = y;
-            circle.scaleX = 1;
-            circle.scaleY = 1;
+            circle.scaleX = globalscale;
+            circle.scaleY = globalscale;
             circle.alpha = .7;
             layers.planets.addChild(circle);
             createjs.Tween.get(circle)
@@ -1263,9 +1307,17 @@
         function redrawPlanet(p) {
             layers.planets.removeChild(p.shape);
             layers.planets.removeChild(p.label);
+            p.fillupContainer.removeChild(p.fillup);
+            drawPlanet(p);
+        }
+
+        function drawPlanet(p) {
             p.shape = planetShape(p.radius, p.x, p.y, p.owner);
             p.label = planetLabel(p);
+            p.fillup = planetFillup(p); 
             layers.planets.addChild(p.shape);
+            p.fillupContainer.addChild(p.fillup);
+            layers.planets.addChild(p.fillupContainer);
             layers.planets.addChild(p.label);
         }
 
