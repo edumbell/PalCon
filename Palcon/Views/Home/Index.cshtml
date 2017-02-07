@@ -171,7 +171,7 @@
                 var settings = JSON.parse(jsonstr);
                 fleetspeed = settings.speed;
                 growthrate = settings.growth;
-                planetsPerPlayer = settings.ppp;
+                numPlanetsDesired = settings.ppp;
                 neutralPlanetCost = settings.costs;
                 attackRatio = settings.attack;
                 showSettings();
@@ -261,7 +261,7 @@
         function showSettings() {
             $("#fleetspeed").val(fleetspeed);
             $("#growthrate").val(growthrate);
-            $("#ppp").val(planetsPerPlayer);
+            $("#ppp").val(numPlanetsDesired);
             $("#costs").val(neutralPlanetCost);
             $("#attack").val(attackRatio);
         }
@@ -342,7 +342,7 @@
         var planetradiuspercent = 1.9;
         var planetRadiusPixels = 0;
 
-        var planetsPerPlayer = 7;
+        var numPlanetsDesired = 30;
         var numPlayers = 0;
         var gameId;
 
@@ -1031,7 +1031,7 @@
             }
             var growth = 4;
             var extraCost = 50;
-            var numNeutrals = 10 + (numPlayers + 1) * (planetsPerPlayer / 2) + 1;
+            var numNeutrals = 10 + (numPlayers + 1) * (numPlanetsDesired / 6) + 1;
             if (numNeutrals > 100)
                 numNeutrals = 100;
             //console.log(numNeutrals);
@@ -1515,7 +1515,7 @@
                 <input id="growthrate" />
             </div>
             <div>
-                <label># Planets:</label>
+                <label># Planets (3 player):</label>
                 <input id="ppp" />
             </div>
             <div>
