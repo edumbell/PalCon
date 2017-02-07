@@ -29,7 +29,7 @@ namespace Palcon.Models
         public bool AllCommandsIn()
         {
             var alivePlayerCount = LivePlayers().Count();
-            var commandsSent = Players.Where(x => x.CurrentCommand != null).Count();
+            var commandsSent = LivePlayers().Where(x => x.CurrentCommand != null).Count();
             return alivePlayerCount == commandsSent;
         }
 

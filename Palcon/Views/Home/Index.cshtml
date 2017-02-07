@@ -136,6 +136,7 @@
                 processGameBoard(map);
                 setTimeout(startTicker, 500);
                 setupDragBoxEvents();
+
             }
 
             myHub.client.receiveCommands = function (json) {
@@ -388,6 +389,7 @@
         }
         function setupDragBoxEvents() {
             stage.addEventListener("pressmove", function (evt) {
+
                 var isRight = (evt.nativeEvent.button == 2);
                 if (isRight)
                     return;
@@ -416,6 +418,7 @@
         }
 
         function stagePressUp(evt) {
+
             var isRight = (evt.nativeEvent.button == 2);
             if (isRight)
                 return;
@@ -963,7 +966,7 @@
             }
         }
 
-        function generateGameBoard() {
+        function generateGameBoard(isRetry) {
             function overlap(obj, minDist) {
                 var gap = minDist;
                 if (!minDist)
@@ -1014,8 +1017,14 @@
                         minDistBetweenPlayers = minDistBetweenPlayers * .98;
                     }
                     if (tries > 100) {
-                        alert('can\'t find a place to add new planet.  too many planets');
-                        return;
+                        if (isRetry) {
+                            alert('can\'t find a place to add new planet.  too many planets');
+                            return;
+                        }
+                        else
+                        {
+                            return generateGameBoard(true);
+                        }
                     }
                 }
                 planetArray.push(newPlanet);
@@ -1064,6 +1073,9 @@
         }
 
         function init() {
+
+            createjs.Touch.enable(stage, false, true);
+
             $("#pregame").hide();
 
             document.getElementById("PalCanvas").addEventListener('contextmenu', function (e) {
@@ -1126,6 +1138,10 @@
             timeStartTurn = new Date().getTime();
             myHub.server.sendCommands(gameId, '[]');
             $("#controls").show();
+            var p = planets[ownerIndex - 1];
+            if (p.owner == ownerIndex) {
+                showOrderStart(p.x, p.y, 100, ownerIndex)
+            }
         }
 
         function updatePlanet(p) {
@@ -1220,6 +1236,7 @@
         }
 
         function playSound(sound, x, rate, volume) {
+            
             var pan = 0;
             if (xbound) {
                 pan = x / xbound * 2 - 1;
@@ -1228,6 +1245,9 @@
                 rate = 1;
             if (!volume)
                 volume = 1;
+            sound._volume = volume;
+            sound._stereo = pan;
+            sound._rate = rate;
             var s = sound.play();
             sound.stereo(pan, s);
             sound.rate(rate, s);
@@ -1316,7 +1336,7 @@
                     p.owner = f.owner;
                     redrawPlanet(p);
 
-                    playSound(sound_conquer, p.x, 2 - p.growth * .25, .15);
+                    playSound(sound_conquer, p.x, 2 - p.growth * .25, .1);
                     deleteFleet = true;
                     layers.fleets.removeChild(f.shape);
                 }
@@ -1530,7 +1550,7 @@
 
         </div>
         <div id="controls">
-            <button id="newgame" onclick="newgame()">New Game</button>
+            <button id="newgame" onclick="newGame()">New Game</button>
             <button id="surrender" onclick="sendSurrender()">Surrender</button>
         </div>
         <div style="clear:both"></div>
