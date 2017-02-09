@@ -93,11 +93,13 @@ namespace Palcon.Controllers
         {
             var game = Game.Games.Where(x => x.GameId == gameId).Single();
             int pid = 0;
+            var colours = game.SetUniqueColours();
             foreach (var p in game.Players)
             {
                 pid++;
                 p.PlayerId = pid;
-                Clients.Client(p.ConnectionId).receiveMap(p.PlayerId, json);
+                Clients.Client(p.ConnectionId).receiveMap(p.PlayerId, json,
+                    Newtonsoft.Json.JsonConvert.SerializeObject(colours));
             }
         }
 
@@ -107,6 +109,26 @@ namespace Palcon.Controllers
             foreach (var p in game.LivePlayers())
             {
                 Clients.Client(p.ConnectionId).receiveCommands(jsonAll);
+            }
+        }
+
+        public void SendColour(int gameId, string col)
+        {
+            var game = Game.Games.Where(x => x.GameId == gameId).Single();
+            if (!game.Started)
+            {
+                var player = game.Players.Where(x => x.ConnectionId == Context.ConnectionId).Single();
+                player.Colour = col;
+            }
+        }
+
+        public void SendChat(int gameId, string msg)
+        {
+            var game = Game.Games.Where(x => x.GameId == gameId).Single();
+            msg = HttpContext.Current.Server.HtmlEncode(msg);
+            foreach (var p in game.Players)
+            {
+                Clients.Client(p.ConnectionId).receiveChat(p.Colour, msg);
             }
         }
 

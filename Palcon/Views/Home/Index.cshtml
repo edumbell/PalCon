@@ -1,26 +1,59 @@
 ﻿@{
+    @model string[]
     ViewBag.Title = "Home Page";
     Layout = null;
 }
 
 @*
-    prevent double-sends
-    chat
-
+TODO
+    save settings (but whose take priority?)
+    shields
+    prevent double-click fleet sends
+    check colours valid
+    break dep. between easeljs ship scale and collission detection
+WARNINGS
+    tween using ticks, just in case easeljs being used for gameplay (e.g. ship scale)
 *@
 
 <html>
 <head>
     <style>
+
+        @@font-face {
+    font-family: space;
+    src: url("content/space_age.ttf") format("truetype");
+}
+
+        * {
+            outline-style:none;
+        }
+        h2 {
+                        font-family:space;
+        }
+        h3 {
+            color:white;
+            margin-top:10px;
+        }
         input {
             border-radius: 5px;
             width: 40px;
             padding: 2px 7px;
         }
-
+        #pregame {
+            width:60%;
+            float:left;
+        }
+.clearfix:after {
+	visibility: hidden;
+	display: block;
+	font-size: 0;
+	content: " ";
+	clear: both;
+	height: 0;
+	}
         #pregame label {
-            width: 150px;
-            display: inline-block;
+            /*width: 150px;*/
+            /*display: inline-block;*/
             text-align: right;
         }
 
@@ -39,7 +72,7 @@
             color: #bbb;
             background-color: black;
             font-size: .8em;
-            padding:5px;
+            padding: 5px;
             /*margin-right:-99%;
             width:100%;
             float:left;*/
@@ -56,31 +89,88 @@
                 margin-left: 12px;
             }
 
-        .rows > div {
-            margin-bottom: 5px;
+        .rows {
+            width: auto;
+            float: left;
+            padding-right: 30px;
+            margin-right: 5%;
         }
 
-        #rightcontainer {
-            float:left;
-            padding:5px;
-            margin-right:-99%;
+            .rows > div, .colours > div {
+                margin-bottom: 5px;
+                text-align: right;
+                width: 100%;
+                position: relative;
+            }
+
+        .colours {
+            float: left;
         }
+
+            .colours > div > div {
+                /*float: left;*/
+                width: 20px;
+                /*margin-right: 10px;*/
+                padding: 5px;
+                margin-bottom: 5px;
+                border: 3px solid;
+                border-radius: 15px;
+                position: relative;
+                background-color: black;
+                float:left;
+                margin-right:30%;
+            }
+            .colours > div > div:hover {
+                cursor:pointer;
+            }
+            .colours input {
+                width: 13px;
+                height: 13px;
+                margin: auto;
+                display: block;
+            }
+
+        #rightcontainer {
+            float: left;
+            padding: 0 5px;
+            margin-right: -99%;
+        }
+            #rightcontainer > div  {
+                margin-top:5px;
+            }
 
         #controls {
             display: none;
             float: left;
-            padding:5px;
-            margin-right: -99%;
+            padding: 5px;
             width: 100%;
         }
 
-        #controls button {
-            font-size:.85em;
-            padding:4px;
-        }
+            #controls button {
+                font-size: .85em;
+                padding: 4px;
+            }
+            #chat_scroller {
+                background-color:black;
+                border-radius:5px;
+                padding:5px;
+                display:none;
+                overflow-y:scroll;
+            }
+            #chat_input {
+                width:auto;
+                display:none;
+            }
 
         body {
             overflow: hidden;
+        }
+        input[type=text] {
+            background-color:#99ccbb;
+            border-top-color:#aec;
+            border-left-color:#aec;
+            border-bottom-color:#9cb;
+            border-right-color:#9cb;
         }
     </style>
     <script src="/Scripts/jquery-1.10.2.min.js"></script>
@@ -105,6 +195,7 @@
         keyconst.ctrl = [17, 16, 224]; // 91 behaves odd in win/chrome
         keyconst.z = [90];
         keyconst.x = [88];
+        keyconst.enter = [13];
         $(function () {
             myHub = $.connection.palconHub;
 
@@ -115,10 +206,23 @@
 
             }
 
+            myHub.client.receiveChat = function (col, msg) {
+
+                var html = "<div style='color:" + col + "'>"
+                + msg + "</div>";
+                $("#chat_scroller").append(html);
+                $("#chat_scroller").animate({ scrollTop: $("#chat_scroller").height() }, "slow");
+            }
+
             myHub.client.joinSuccess = function (aGameId) {
                 gameId = aGameId;
                 $("button").css('visibility', 'visible');
                 showSettings();
+                initChat();
+                $(".colours input").on("change", function () {
+                    console.log('picked');
+                    myHub.server.sendColour(gameId, $("input[name='colour']:checked").val());
+                });
             }
 
             myHub.client.checkReadyToStart = function () {
@@ -129,8 +233,10 @@
                 init();
             }
 
-            myHub.client.receiveMap = function (myPlayerId, json) {
+            myHub.client.receiveMap = function (myPlayerId, json, colours) {
+                console.log(colours);
                 ownerIndex = myPlayerId;
+                ownercolours = JSON.parse(colours);
                 $("body").css("background-color", ownercolours[ownerIndex]);
 
                 //console.log(json);
@@ -186,7 +292,11 @@
 
             $.connection.hub.start().done(function () {
                 myHub.server.joinGame();
-            });
+
+                $(".colours > div > div").on("click", function () {
+                    $(this).find("input").select();
+                    $(this).find("input").prop('checked', true);
+                });
 
 
 
@@ -202,14 +312,19 @@
                     }
                 }
             );
-            $(window).keyup(
-                function (e) {
-                    keys[e.which] = false;
-                    if (e.which == keyconst.z) {
-                        e.preventDefault();
+                $(window).keyup(
+                    function (e) {
+                        keys[e.which] = false;
+                        if (e.which == keyconst.z) {
+                            e.preventDefault();
+                        }
+                        if (e.which == keyconst.enter) {
+                            sendChat();
+                        }
                     }
-                }
-            );
+                );
+
+            });
 
             var context;
             try {
@@ -245,6 +360,18 @@
 
         });
 
+        function initChat() {
+            $("#chat_input").show();
+            $("#chat_scroller").show();
+            $("#chat_input").on("keyup", function (evt) {
+
+            });
+        }
+
+        function sendChat() {
+            myHub.server.sendChat(gameId, $("#chat_input").val());
+            $("#chat_input").val('');
+        }
 
         function isPressed(which) {
             for (code in which) {
@@ -331,7 +458,7 @@
                     p.owner = 0;
                     redrawPlanet(p);
                     //showOrderStart(p.x, p.y, p.radius, oid);
-                    showExplosion(p.x, p.y, p.radius*3, oid, 3, true);
+                    showExplosion(p.x, p.y, p.radius * 3, oid, 3, true);
                 }
             }
         }
@@ -811,13 +938,13 @@
             var shape = new createjs.Shape();
             var line = new createjs.Shape();
             //shape.scaleX = shape.scaleY = 1;
-            var size = planet.radius-2 * globalscale
+            var size = planet.radius - 2 * globalscale
             var y = size * (1 - Math.min(2, (planet.pop * 2 / planet.fullpop))) + globalscale;
-            shape.graphics.beginLinearGradientFill(["transparent", col,col, "transparent"], [0, .01, .2, .6], 0, y - 1*globalscale, 0, y + size*2);
+            shape.graphics.beginLinearGradientFill(["transparent", col, col, "transparent"], [0, .01, .2, .6], 0, y - 1 * globalscale, 0, y + size * 2);
             //shape.graphics.beginFill(ownercolours[planet.owner]);
             shape.graphics.drawCircle(0, 0, planet.radius - 1 * globalscale);
             shape.graphics.endFill();
-            if (y > 0-size) {
+            if (y > 0 - size) {
                 line.graphics.setStrokeStyle(1, 'butt', 'round', 0);
                 line.graphics.beginStroke(col)
                 line.graphics.moveTo(0 - Math.sqrt(size * size - y * y), y);
@@ -843,16 +970,16 @@
         }
 
         function highlightShape(planet) {
-            
+
             var col = [ownercolours[ownerIndex]];
             var circle = new createjs.Shape();
             var width = 11 * globalscale;
             circle.graphics.setStrokeStyle(width);
-            circle.graphics.beginRadialGradientStroke( ["transparent","#fff",col,"transparent"], [0,.2, .5,1],
+            circle.graphics.beginRadialGradientStroke(["transparent", "#fff", col, "transparent"], [0, .2, .5, 1],
                 0, 0, planet.radius,
-             0,0,planet.radius + 11*globalscale)
+             0, 0, planet.radius + 11 * globalscale)
             //circle.graphics.beginStroke("#FFF")
-            .drawCircle(0, 0, planet.radius + 5*globalscale);
+            .drawCircle(0, 0, planet.radius + 5 * globalscale);
             //circle.graphics.setStrokeStyle(1.5 * globalscale);
             //circle.graphics.beginStroke("#fff").drawCircle(0, 0, planet.radius + width/2);
             circle.alpha = .66;
@@ -986,7 +1113,7 @@
             drawSurfacePath(p1, p2, shape);
             //shape.graphics.moveTo(0, 0);
             //shape.graphics.lineTo(x2 - x1, y2 - y1);
-            shape.alpha = .3;
+            shape.alpha = .4;
             //shape.x = x1;
             //shape.y = y1;
             return shape;
@@ -1065,8 +1192,7 @@
                             alert('can\'t find a place to add new planet.  too many planets');
                             return;
                         }
-                        else
-                        {
+                        else {
                             return generateGameBoard(true);
                         }
                     }
@@ -1117,7 +1243,7 @@
         }
 
         function init() {
-
+            $("#rightcontainer h3").hide();
             createjs.Touch.enable(stage, false, true);
 
             $("#pregame").hide();
@@ -1176,12 +1302,12 @@
         }
 
         function startTicker() {
-
+            $("body").css('background-color','#333');
             createjs.Ticker.setFPS(ticksPerTurn / msPerTurn * 1000);
             createjs.Ticker.addEventListener("tick", handleTick);
             timeStartTurn = new Date().getTime();
             myHub.server.sendCommands(gameId, '[]');
-            $("#controls").show();
+            $("#controls").slideDown(500);
             var p = planets[ownerIndex - 1];
             if (p.owner == ownerIndex) {
                 showOrderStart(p.x, p.y, 100, ownerIndex)
@@ -1206,7 +1332,7 @@
                 else
                     p.label.color = ownercolours[p.owner];
                 p.label.text = newText;
-                
+
                 p.label.x = p.x - globalscale * p.label.getBounds().width / 2;
                 p.label.y = p.y - globalscale * p.label.getBounds().height / 2;
 
@@ -1286,7 +1412,7 @@
         }
 
         function playSound(sound, x, rate, volume) {
-            
+
             var pan = 0;
             if (xbound) {
                 pan = x / xbound * 2 - 1;
@@ -1314,7 +1440,7 @@
         function drawPlanet(p) {
             p.shape = planetShape(p.radius, p.x, p.y, p.owner);
             p.label = planetLabel(p);
-            p.fillup = planetFillup(p); 
+            p.fillup = planetFillup(p);
             layers.planets.addChild(p.shape);
             p.fillupContainer.addChild(p.fillup);
             layers.planets.addChild(p.fillupContainer);
@@ -1333,7 +1459,7 @@
 
 
             var volume = Math.sqrt(landPop + 10) / 10 - .3;
-            if (volume >1)
+            if (volume > 1)
                 volume = 1;
             var spotx = f.shape.x + Math.cos(Math.atan(f.dy / f.dx)) * Math.sign(f.dx) * f.distMidToFront * f.shape.scaleX;
             var spoty = f.shape.y + Math.sin(Math.atan(f.dy / f.dx)) * Math.sign(f.dx) * f.distMidToFront * f.shape.scaleX;
@@ -1354,7 +1480,7 @@
 
                 if (f.destination.pop >= damage) {
 
-                    playSound(sound_attack, p.x, rate / 2 + .25, volume*.35);
+                    playSound(sound_attack, p.x, rate / 2 + .25, volume * .35);
 
 
 
@@ -1553,10 +1679,10 @@
     </script>
 
 </head>
-<body onload="" style="margin:0; background-color:#332244">
+<body onload="" style="margin:0; background-color:#224422">
     <canvas id="PalCanvas" width="1" height="1" style="float:left;"></canvas>
-    <div id="pregame" style="color:white; padding:10px">
-        <h3>PalCon</h3>
+    <div id="pregame" class="clearfix" style="color:white; padding:10px">
+        <h2>PalCon</h2>
         Waiting for players. Joined: <span id="playersLabel"></span>
         <br /><br />
         Suggestion: Before starting, hit <b>F11</b> to go fullscreen</span>
@@ -1564,35 +1690,48 @@
         <button id="btnStart" style="visibility:hidden" onclick="startGame();">START GAME</button>
         <hr />
         <div class="rows">
+            <h3>Change game settings</h3>
             <div>
                 <label>Fleet Speed: </label>
-                <input id="fleetspeed" />
+                <input type="text" id="fleetspeed" />
             </div>
             <div>
                 <label>Growth Rate:</label>
-                <input id="growthrate" />
+                <input type="text" id="growthrate" />
             </div>
             <div>
                 <label># Planets (3 player):</label>
-                <input id="ppp" />
+                <input type="text" id="ppp" />
             </div>
             <div>
                 <label>Neutral Planet Cost:</label>
-                <input id="costs" />
+                <input type="text" id="costs" />
             </div>
             <div>
                 <label>Attack ratio:</label>
-                <input id="attack" />
+                <input type="text" id="attack" />
             </div>
-            <label></label>
-            <button style="visibility:hidden" id="btnSettings" onclick="sendSettings();">UPDATE SETTINGS</button>
+            <div>
+                <button style="visibility:hidden" id="btnSettings" onclick="sendSettings();">UPDATE SETTINGS</button>
+            </div>
         </div>
-        <hr />
+        <div class="colours">
+            <h3>Choose your preferred colour</h3>
+            <div>
+                @foreach (var colour in Model.Skip(1))
+            {
+                    <div style="border-color:@(colour)">
+                        <input value="@(colour)" type="radio" name="colour" />
+                    </div>
+                }
+            </div>
+        </div>
 
     </div>
     <div id="rightcontainer">
+        <h3>Instructions</h3>
         <div id="instructions">
-
+            
             <div>
                 <label>Select planets:</label><span>click / ctrl-click</span>
                 <br />
@@ -1607,11 +1746,14 @@
 
 
         </div>
-        <div id="controls">
+        <div id="controls" class="clearfix">
             <button id="newgame" onclick="newGame()">Restart</button>
             <button id="surrender" onclick="sendSurrender()">Surrender</button>
         </div>
-        <div style="clear:both"></div>
+        <div id="chat_scroller" style="height:50%">
+        </div>
+        <input type="text" id="chat_input" placeholder="CHAT...." />
+
 
     </div>
 </body>

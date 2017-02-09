@@ -10,7 +10,7 @@ namespace Palcon.Controllers
     {
         public ActionResult Index()
         {
-            return View();
+            return View(Palcon.Models.Game.Colours);
         }
 
         public ActionResult About()
