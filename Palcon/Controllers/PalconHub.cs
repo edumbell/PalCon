@@ -49,7 +49,7 @@ namespace Palcon.Controllers
         public void ClientReadyToStart(int gameId)
         {
             var game = Game.Games.Where(x => x.GameId == gameId).Single();
-            var p = game.Players.Where(x => x.ConnectionId == Context.ConnectionId).Single();
+            var p = game.HumanPlayers().Where(x => x.ConnectionId == Context.ConnectionId).Single();
             p.IsReadyToStart = true;
 
         }
@@ -59,7 +59,7 @@ namespace Palcon.Controllers
             var game = Game.Games.Where(x => x.GameId == gameId).Single();
             if (!game.Started)
             {
-                foreach (var p in game.Players)
+                foreach (var p in game.HumanPlayers())
                 {
                     Clients.Client(p.ConnectionId).receiveSettings(settings);
                 }
@@ -74,14 +74,14 @@ namespace Palcon.Controllers
                 if (!game.Started)
                 {
                     game.Started = true;
-                    foreach (var p in game.Players)
+                    foreach (var p in game.LiveHumanPlayers())
                     {
                         Clients.Client(p.ConnectionId).checkReadyToStart();
                     }
                     System.Threading.Thread.Sleep(1500);
-                    var initiatingPlayer = game.Players.Where(x => x.ConnectionId == Context.ConnectionId).Single();
+                    var initiatingPlayer = game.LiveHumanPlayers().Where(x => x.ConnectionId == Context.ConnectionId).Single();
                     initiatingPlayer.IsReadyToStart = true; // need to assume this, as websockets(?) doesn't allow two connections?
-                    game.Players = game.Players.Where(x => x.IsReadyToStart).ToList();
+                    game.Players = game.Players.Where(x => x.IsReadyToStart || x.IsAI).ToList();
                     return game.Players.Count();
                 }
                 else
@@ -89,12 +89,16 @@ namespace Palcon.Controllers
             }
         }
 
-        public void SendMap(int gameId, string json)
+        public void SendMap(int gameId, string json, int numAiPlayers)
         {
             var game = Game.Games.Where(x => x.GameId == gameId).Single();
+            for (var a = 0; a < numAiPlayers; a++)
+            {
+                game.Players.Add(new Player() { ConnectionId = "ai", IsAI = true, IsReadyToStart = true });
+            }
             int pid = 0;
             var colours = game.SetUniqueColours();
-            foreach (var p in game.Players)
+            foreach (var p in game.LiveHumanPlayers())
             {
                 pid++;
                 p.PlayerId = pid;
@@ -117,7 +121,7 @@ namespace Palcon.Controllers
             var game = Game.Games.Where(x => x.GameId == gameId).Single();
             if (!game.Started)
             {
-                var player = game.Players.Where(x => x.ConnectionId == Context.ConnectionId).Single();
+                var player = game.LiveHumanPlayers().Where(x => x.ConnectionId == Context.ConnectionId).Single();
                 player.Colour = col;
             }
         }
@@ -126,7 +130,7 @@ namespace Palcon.Controllers
         {
             var game = Game.Games.Where(x => x.GameId == gameId).Single();
             msg = HttpContext.Current.Server.HtmlEncode(msg);
-            foreach (var p in game.Players)
+            foreach (var p in game.LiveHumanPlayers())
             {
                 Clients.Client(p.ConnectionId).receiveChat(p.Colour, msg);
             }
@@ -137,7 +141,7 @@ namespace Palcon.Controllers
             var game = Game.Games.Where(x => x.GameId == gameId).FirstOrDefault();
             if (game == null)
                 return;
-            var player = game.Players.Where(x => x.ConnectionId == Context.ConnectionId).Single();
+            var player = game.HumanPlayers().Where(x => x.ConnectionId == Context.ConnectionId).Single();
             player.CurrentCommand = json;
             var allSent = game.AllCommandsIn();
             if (allSent)
@@ -146,9 +150,10 @@ namespace Palcon.Controllers
             }
             else
             {
-                var schedule = System.Threading.Tasks.Task.Run(async () => {
+                var schedule = System.Threading.Tasks.Task.Run(async () =>
+                {
                     await System.Threading.Tasks.Task.Delay(1500);
-                    if (game.TimeLastTurnEnd.AddMilliseconds(1500) < DateTime.Now )
+                    if (game.TimeLastTurnEnd.AddMilliseconds(1500) < DateTime.Now)
                     {
                         EndTurn(game);
                     }
@@ -156,7 +161,7 @@ namespace Palcon.Controllers
             }
         }
 
-        
+
 
         public void Hello()
         {

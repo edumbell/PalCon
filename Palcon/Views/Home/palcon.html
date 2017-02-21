@@ -73,7 +73,6 @@
             this.index = planets.length;
             this.x = x;
             this.y = y;
-
             this.pop = pop;
             this.owner = owner;
             this.growth = growth;
@@ -122,6 +121,7 @@
         }
 
         function Fleet(pop, startPlanet, destination, owner) {
+            this.distToGo = 9999;
             this.pop = pop;
             this.owner = owner;
             this.destination = destination;
@@ -177,6 +177,7 @@
 
         var planets = [];
         var fleets = [];
+        var distanceMatrix = []; // for AI's
 
         var stage;
         var globalscale;
@@ -279,6 +280,33 @@
                 var p = new Planet(j.growth, j.x * globalscale*10, j.y * globalscale*10, j.pop, j.owner);
                 planets.push(p);
             }
+            distanceMatrix = [];
+            var j = -1;
+            console.log(j);
+            for (idx in planets) {
+                //console.log(idx);
+                var p = planets[idx];
+                var arr = [];
+                //arr.push(3);
+                console.log(j);
+                for (j in planets)
+                {
+                    console.log(j);
+                    if (idx != j) {
+                        var p2 = planets[j];
+                        var distCentres = Math.sqrt(Math.pow(p.shape.x - p2.shape.x, 2) + Math.pow(p.shape.y - p2.shape.y, 2));
+                        //var distPercent = (distCentres - p.shape.radius) * 100 / xbound;
+                        //console.log({ planetId: p2.id, dist: distCentres - p.shape.radius });
+                        arr.push({ planetId: p2.index, dist: distCentres - p2.radius });
+                        console.log(arr);
+                    }
+                }
+                arr = arr.sort(function (a, b) {
+                    return a.dist < b.dist ? -1 : 1;
+                });
+                arr = arr.slice(0, 5);
+                distanceMatrix.push(arr);
+            }
         }
 
         function generateGameBoard()
@@ -378,7 +406,7 @@
             document.getElementById("PalCanvas").setAttribute('height', window.innerWidth / 2);
             xbound = document.getElementById("PalCanvas").width;
             ybound = document.getElementById("PalCanvas").height;
-            globalscale = xbound / 1000;
+            globalscale = 1; 
             planetRadiusPixels = planetradiuspercent * globalscale * 10;
 
 
@@ -392,7 +420,7 @@
             stage = new createjs.Stage("PalCanvas");
             stage.update();
             stage.addChild(bg());
-
+            stage.scaleX = stage.sclaeY = xbound / 1000;
 
             // must be after setting globalscale and initing stage:
             processGameBoard(planetsData);
@@ -417,9 +445,13 @@
 
         }
 
+        function growthPerTurn(growth) {
+            return growth * growthrate / 10;
+        }
+
         function updatePlanet(p) {
             if (p.owner > 0) {
-                p.pop += p.growth * growthrate / ticksPerTurn / 10;
+                p.pop += growthPerTurn(p.growth) / ticksPerTurn;
             }
                 var newText = Math.round(p.pop);
                 if (newText != p.label.text) {
@@ -432,8 +464,9 @@
 
         function moveFleet(f, idx) {
             if (f != null) {
-                var distToGo = Math.sqrt(Math.pow((f.shape.x - f.destination.shape.x), 2) + Math.pow((f.shape.y - f.destination.shape.y), 2));
-                if (distToGo < f.destination.radius * globalscale) {
+                this.distToGo = Math.sqrt(Math.pow((f.shape.x - f.destination.shape.x), 2) + Math.pow((f.shape.y - f.destination.shape.y), 2))
+                 - f.destination.radius * globalscale;
+                if (this.distToGo < 0) {
                     //console.log(distToGo);
                     land(f);
                     fleets[idx] = null;
@@ -550,6 +583,34 @@
                 }
             }
         }
+
+// ======================= AI ==============================
+
+        var aiPlayersHostedLocally = [];
+        function AI(ownerId) {
+            this.shortTermDist = 25;
+            this.longTermDist = 50;
+            this.ownerId = ownerId;
+            function planetData(planet) {
+                this.planet = planet;
+                this.selfInfluence = 0;
+                this.enemyDefence = 0; // owner of planet
+                this.enemyAttack = 0; // third parties
+                this.desirability = planet.growthrate;
+            }
+            this.doTurn = function () {
+                // own planets:  other-influence(danger) vs  self-influence(safety)
+                // other planets:  danger vs greed vs self-influence
+                // send ships to:   short term other>self; long term self>=other
+
+                for (var idx in planets)
+                {
+
+                }
+            }
+        }
+
+
     </script>
 
 </head>

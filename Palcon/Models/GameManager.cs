@@ -48,10 +48,20 @@ namespace Palcon.Models
             return Players.Where(x => !x.IsDead).ToList();
         }
 
+        public List<Player> LiveHumanPlayers()
+        {
+            return Players.Where(x => !x.IsDead && ! x.IsAI).ToList();
+        }
+
+        public List<Player> HumanPlayers()
+        {
+            return Players.Where(x => !x.IsAI).ToList();
+        }
+
         public bool AllCommandsIn()
         {
-            var alivePlayerCount = LivePlayers().Count();
-            var commandsSent = LivePlayers().Where(x => x.CurrentCommand != null).Count();
+            var alivePlayerCount = LiveHumanPlayers().Count();
+            var commandsSent = LiveHumanPlayers().Where(x => x.CurrentCommand != null).Count();
             return alivePlayerCount == commandsSent;
         }
 
@@ -84,6 +94,7 @@ namespace Palcon.Models
     public class Player
     {
         public int GameId { get; set; }
+        public bool IsAI { get; set; }
         public int PlayerId { get; set; }
         public string Name { get; set; }
         public string Colour { get; set; }
