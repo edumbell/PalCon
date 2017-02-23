@@ -422,7 +422,7 @@
                 if (numPlayers > 0) {
                     console.log('server says numplayers: ' + numPlayers);
 
-                    while (numPlayers < 3) {
+                    while (numPlayers < 4) {
                         aiPlayersHostedLocally.push(new AI(numPlayers + 1));
                         numPlayers++;
                     }
@@ -802,7 +802,7 @@
             this.dy = globalscale * Math.sin(angle) * fleetspeed / 10 / ticksPerTurn;
 
             this.shape = fleetShape(Math.sqrt(pop), startPlanet.shape.x, startPlanet.shape.y, owner, angle);
-            this.distMidToFront = this.shape.scaleX * 1.5;
+            this.distMidToFront = 1.5;
             this.path = fleetPath(startPlanet, destination, owner);
             this.size = Math.sqrt(pop);
             this.popLandPerTurn = Math.round(this.pop / 10) + 1;
@@ -815,8 +815,8 @@
             this.redrawScale = function () {
                 this.size = Math.sqrt(pop);
                 var tween = createjs.Tween.get(this.shape, { useTicks: true });
-                var scaleTo = globalscale * Math.sqrt(this.pop) * .7 + 1.5;
-                tween.to({ scaleX: scaleTo, scaleY: scaleTo }, ticksPerTurn);
+                this.gameScale = globalscale * Math.sqrt(this.pop) * .7 + 1.5;
+                tween.to({ scaleX: this.gameScale, scaleY: this.gameScale }, ticksPerTurn);
                 //this.shape.scaleX = this.shape.scaleY = globalscale * Math.sqrt(this.pop) * .7 + 1.5;
             }
             this.redrawScale();
@@ -1369,7 +1369,7 @@
 
             if (p.owner > 0) {
                 if (p.pop < p.fullpop) {
-                    p.pop += p.growth * growthrate / ticksPerTurn / 500;
+                    p.pop += p.growth * growthrate / ticksPerTurn / 900;
                 }
 
             }
@@ -1399,7 +1399,7 @@
             if (f != null) {
                 f.distToGo = Math.sqrt(Math.pow((f.shape.x - f.destination.shape.x), 2) + Math.pow((f.shape.y - f.destination.shape.y), 2))
                  - f.destination.radius * globalscale
-                 - f.distMidToFront * f.shape.scaleX;
+                 - f.distMidToFront * f.gameScale;
 
                 if (f.distToGo < 0) {
                     //f.arrived = true;
@@ -1541,11 +1541,13 @@
 
                     f.destination.pop -= damage;
                     f.pop -= landPop;
-                    f.redrawScale();
 
                     if (f.pop <= 0) {
                         deleteFleet = true;
                         layers.fleets.removeChild(f.shape);
+                    }
+                    else {
+                        f.redrawScale();
                     }
                 }
                 else {
@@ -1608,7 +1610,7 @@
                         rotate += 360;
                     //var moreRotate = rotate + (rotate - f.shape.rotation) / 2;
                     tween.to({ rotation: rotate }, msPerTurn * 2, createjs.Ease.cubicInOut)
-                    //.to({ rotation: moreRotate, scaleX: f.shape.scaleX / 5.5, scaleY: f.shape.scaleY / 4, x: targetx, y: targety + f.size / 3 + 2 }, msPerTurn * 2, createjs.Ease.cubicInOut);
+
 
                     //setTimeout(function () {
                     //    layers.fleets.removeChild(f.shape);
@@ -1786,9 +1788,9 @@
 
             this.processFleetAttack = function (f) {
                 if (f.destination.owner == this.ownerId)
-                    this.enmity[f.owner] += (f.pop + 10) / (f.destination.pop + 10);
+                    this.enmity[f.owner] += (f.pop + 1) / (f.pop + f.destination.pop + 10);
                 else if (f.destination.owner > 0)
-                    this.enmity[f.owner] -= (f.pop + 10) / (f.destination.pop + 10) / 2;
+                    this.enmity[f.owner] -= (f.pop + 1) / (f.pop + f.destination.pop + 10) / 2;
             }
 
             this.doInfluenceStep = function (multiplier) {
@@ -1881,7 +1883,7 @@
                                 if (p.goodTarget > .5) {
                                     p.goodTarget = p.goodTarget * (1 + p.desirability);
                                     if (this.enmity[p.owner] > 1)
-                                        p.goodTarget = p.goodTarget * (1 + this.enmity[p.owner] / 5);
+                                        p.goodTarget = p.goodTarget * (1 + Math.max( this.enmity[p.owner] / 10, 2));
                                 }
                                 if (p.goodTarget > 0) {
                                     for (j in distanceMatrix[p.planetId]) {

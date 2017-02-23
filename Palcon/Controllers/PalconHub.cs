@@ -129,10 +129,11 @@ namespace Palcon.Controllers
         public void SendChat(int gameId, string msg)
         {
             var game = Game.Games.Where(x => x.GameId == gameId).Single();
+            var player = game.LiveHumanPlayers().Where(x => x.ConnectionId == Context.ConnectionId).Single();
             msg = HttpContext.Current.Server.HtmlEncode(msg);
             foreach (var p in game.LiveHumanPlayers())
             {
-                Clients.Client(p.ConnectionId).receiveChat(p.Colour, msg);
+                Clients.Client(p.ConnectionId).receiveChat(player.Colour, msg);
             }
         }
 
