@@ -645,6 +645,8 @@
         }
 
         function tryCreateCommand(fromPlanet, toPlanet, sendPercent, owner) {
+            //if (fromPlanet.index == 1)
+            //        console.log('sending from 1 ' + sendPercent);
             if (toPlanet != fromPlanet) {
                 var pop = Math.round(fromPlanet.pop / 100 * sendPercent);
 
@@ -659,6 +661,9 @@
                        );
                     showOrderStart(fromPlanet.x, fromPlanet.y, fromPlanet.radius, owner);
                 }
+            }
+            else {
+                console.log('tried to send to same planet');
             }
         }
 
@@ -1756,14 +1761,18 @@
         function AI(ownerId) {
             this.ownerId = ownerId;
             this.planetData = [];
-            this.persistentPlanetData = Array.apply(null, Array(999)).map(Object.prototype.valueOf, { lastSent: -4 });
+            this.persistentPlanetData = Array.apply(null, Array(99));
+            for (var idx in this.persistentPlanetData)
+                this.persistentPlanetData[idx] = { lastSent: -4 };
             this.enmity = Array.apply(null, Array(numPlayers + 3)).map(Number.prototype.valueOf, 1);
             function PlanetData(planet) {
                 this.planet = planet;
                 this.planetId = planet.index;
                 this.owner = planet.owner;
+                this.overpop = 0;
                 this.actualDefence = planet.pop;
                 this.actualAttack = 0;
+                this.needsHelp = 0;
                 this.influence = Array.apply(null, Array(numPlayers + 3)).map(Number.prototype.valueOf, 0);
                 this.influenceAddedThisStep = Array.apply(null, Array(numPlayers + 3)).map(Number.prototype.valueOf, 0);
                 this.influence[this.owner] = planet.pop;
@@ -1797,7 +1806,7 @@
                     if (p.owner > 0) {
                         otherInfluence = 0;
                         matrix = distanceMatrix[idx];
-                        if (matrix.planetId != idx) alert('error ' + idx);
+                        //if (matrix.planetId != idx) alert('error ' + idx);
                         for (i in p.influence) {
                             if (i > 0 && i != p.owner)
                                 otherInfluence += p.influence[i];
@@ -1850,13 +1859,22 @@
                     if (p.owner == this.ownerId) {
                         p.needsHelp =
                             Math.max(p.actualAttack / p.actualDefence,
-                            p.otherInfluence / p.planetInfluence);
+                            p.otherInfluence / p.planetInfluence)
+                            * p.desirability;
+
+                        if (p.otherInfluence / p.planetInfluence > 5)
+                            p.needsHelp = 0;
+
+                        p.overpop = ( p.planet.pop + 10) / (p.needsHelp + .05);
+                        if (p.planet.pop > p.planet.fullpop)
+                            p.overpop = p.overpop * 2;
+                            
                     }
                     else {
                         if (p.owner != this.ownerId) {
                             if (p.actualAttack < p.actualDefence) {
                                 if (p.actualAtack > 0) {
-                                    console.log('possible target, attack ' + p.actualAttack + ' def ' + p.actualDefence);
+
                                 }
                                 p.goodTarget = Math.min(p.aiInfluence / (p.planetInfluence + p.otherInfluence), 2);
                                 
@@ -1866,15 +1884,22 @@
                                         p.goodTarget = p.goodTarget * (1 + this.enmity[p.owner] / 5);
                                 }
                                 if (p.goodTarget > 0) {
-                                    for (j in distanceMatrix[p.index]) {
-                                        dmd = distanceMatrix[p.index][j];
-                                        this.planetData[dmd.planetId].goodRallyPoint += p.goodTarget * 100 / dmd.dist;
+                                    for (j in distanceMatrix[p.planetId]) {
+                                        dmd = distanceMatrix[p.planetId][j];
+                                        if (this.planetData[dmd.planetId].owner == this.ownerId) {
+                                            this.planetData[dmd.planetId].goodRallyPoint += p.goodTarget * 100 / dmd.dist;
+                                        }
+                                        else {
+                                            this.planetData[dmd.planetId].goodTarget += p.goodTarget * 50 / dmd.dist; // if not owned and would be good rally point, might be good target
+                                        }
                                     }
                                 }
                             }
+                            p.goodTarget *= (1 + .5 * Math.random());
                         }
+                        
                     }
-                    p.goodTarget *= (1 + .5 * Math.random());
+                    
 
                 }
 
@@ -1882,9 +1907,14 @@
 
             this.checkAndSend = function(fromId, to, percent)
             {
-                if (this.persistentPlanetData[fromId].lastSent >= turnId - 5)
+                //if (fromId == 1)
+                //    console.log('sending from 1 ' + percent);
+                if (this.persistentPlanetData[fromId].lastSent >= turnId - 4)
                     return;
                 tryCreateCommand(planets[fromId], planets[to], percent, this.ownerId);
+                //if (fromId > 50)
+                //    console.log('trying to send from ' + fromId);
+                //console.log(fromId);
                 this.persistentPlanetData[fromId].lastSent = turnId;
             }
 
@@ -1900,51 +1930,85 @@
                 for (var idx in fleets) {
                     f = fleets[idx];
                     p = this.planetData[f.destination.index];
-                    mult = .8;
+                    
+                    mult = 100 / (Math.max(50, f.distToGo) + 50);
                     if (f.owner == p.owner) {
-                        mult = 1;
-                        p.actualDefence += f.pop;
+                        
+                        p.actualDefence += f.pop * mult;
                     }
                     else
                     {
-                        p.actualAttack += f.pop;
+                        mult = mult * .8;
+                        p.actualAttack += f.pop * mult;
                     }
                     p.influence[f.owner] += f.pop * mult;
 
                 }
 
-                this.doInfluenceStep(30);
+                this.doInfluenceStep(40);
 
 
             };
 
             this.doTurn2 = function () {
-                this.doInfluenceStep(40);
+                this.doInfluenceStep(60);
             };
 
             this.doTurn3 = function () {
-                this.doInfluenceStep(50);
+                this.doInfluenceStep(70);
             };
 
             this.doTurnFinal = function () {
                 this.calcFinalInfluenceByType();
 
-                var bestTargets = this.planetData.concat().sort(function (a, b) { return a.goodTarget > b.goodTarget ? -1 : 1 });
-                var bestRallies = this.planetData.concat().sort(function (a, b) { return a.goodRallyPoint > b.goodRallyPoint ? -1 : 1 });
+                var bestTargets = this.planetData.concat().sort(function (a, b) { return  a.goodTarget > b.goodTarget ? -1 : 1 });
+                var bestRallies = this.planetData.concat().sort(function (a, b) { return  a.goodRallyPoint > b.goodRallyPoint ? -1 : 1 });
                 var mostNeed = this.planetData.concat().sort(function (a, b) { return a.needsHelp > b.needsHelp ? -1 : 1 });
+                var overpops = this.planetData.concat().sort(function (a, b) { return a.overpop > b.overpop ? -1 : 1 });
                 var need = mostNeed[0];
 
-                if (need.needsHelp > .9) {
-                    //console.log('needs help: ' + need.needsHelp);
+                if (need.needsHelp > .8) {
+
+
                     for (var idx in distanceMatrix[need.planetId]) {
                         var dp = distanceMatrix[need.planetId][idx].planetId;
+                        
                         if (planets[dp].owner == this.ownerId) {
-                            if (this.persistentPlanetData[dp].lastSent <= turnId - 5) {
-                                if ((this.planetData[dp].needsHelp < .5)) {
 
-                                    var percent = Math.min(100 * planets[dp].pop * (need.needsHelp - .9) / need.planet.pop, 80);
-                                    this.checkAndSend(dp, need.planetId, percent);
+
+                            if (this.persistentPlanetData[dp].lastSent <= turnId - 5) {
+
+                                if ((this.planetData[dp].needsHelp < .8) && this.planetData[dp].planet.pop > need.planet.pop/5) {
+
+                                    var percent = Math.min(100 * (need.needsHelp - .6) * need.planet.pop / planets[dp].pop, 80);
+                                    if (percent * planets[dp].pop > need.needsHelp * .1 * need.planet.pop) {
+                                        this.checkAndSend(dp, need.planetId, percent);
+                                        break;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                var overpop = overpops[0];
+                if (this.persistentPlanetData[overpop.planetId].lastSent <= turnId - 19) {
+                    //console.log('can send from most-overpop');
+                    if (overpop.overpop > 200) {
+                        //console.log('overpop:')
+                        //console.log(overpop);
+                        for (var idx in distanceMatrix[overpop.planetId]) {
+
+                            var dp = distanceMatrix[overpop.planetId][idx].planetId;
+                            if (planets[dp].owner == this.ownerId) {
+                                //console.log('overpop recipient? ');
+                                //console.log(this.planetData[dp]);
+                                if (
+                                    this.planetData[dp].goodRallyPoint > 10 ||
+                                    this.planetData[dp].overpop < overpop.overpop * .5 * Math.random()) {
+                                    this.checkAndSend(overpop.planetId, dp, 50);
                                     break;
+
                                 }
                             }
                         }
@@ -1955,7 +2019,7 @@
                     for (var idx in distanceMatrix[rally.planetId]) {
                         var dp = distanceMatrix[rally.planetId][idx].planetId;
                         if (planets[dp].owner == this.ownerId) {
-                            if (this.persistentPlanetData[dp].lastSent <= turnId - 5) {
+                            if (this.persistentPlanetData[dp].lastSent <= turnId - 13) {
                                 if (this.planetData[dp].needsHelp <= 0 && planets[dp].pop > 10) {
 
                                     this.checkAndSend(dp, rally.planetId, 50);
@@ -1970,9 +2034,9 @@
 
                     var dp = distanceMatrix[target.planetId][idx].planetId;
                     if (planets[dp].owner == this.ownerId) {
-                        if (this.persistentPlanetData[dp].lastSent <= turnId - 5) {
+                        if (this.persistentPlanetData[dp].lastSent <= turnId - 9) {
                             
-                            if ((this.planetData[dp].needsHelp <= .5) && (planets[dp].pop > 10) && this.planetData[dp].planet.pop >= target.planetInfluence) {
+                            if ((this.planetData[dp].needsHelp <= .5) && (planets[dp].pop > 10) && this.planetData[dp].planet.pop >= target.planetInfluence/2) {
                                 this.checkAndSend(dp, target.planetId, 60);
                                 break;
                             }

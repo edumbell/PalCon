@@ -8,7 +8,7 @@ namespace Palcon.Models
     public class Game
     {
         public static List<Game> Games = new List<Game>();
-        public static string[] Colours =  {"#caa", "#55e079",  "#c0e000", "#00eee0", "#ffd400", "#aaaaff", "#ff7777", "#ff00ff",  "#e0d0ff"};
+        public static string[] Colours =  {"#caa", "#55e079",   "#00eee0", "#ffd400", "#aaaaff", "#ff7777", "#ff00ff"};
 
         public int GameId { get; set; }
         public List<Player> Players { get; set; }
@@ -31,10 +31,10 @@ namespace Palcon.Models
                 if (usedColours.Contains(p.Colour))
                 {
                     var possibles = Colours.Where(x => !usedColours.Contains(x));
+                    var r = new Random();
                     if (possibles.Any())
                     {
-                        p.Colour = possibles.First();
-                        
+                        p.Colour = possibles.OrderBy(x => r.Next(50)).First();
                     }
                 }
                 usedColours.Add(p.Colour);
