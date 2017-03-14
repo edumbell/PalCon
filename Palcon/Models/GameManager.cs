@@ -8,7 +8,7 @@ namespace Palcon.Models
     public class Game
     {
         public static List<Game> Games = new List<Game>();
-        public static string[] Colours =  {"#caa", "#55e079",   "#00eee0", "#ffd400", "#aaaaff", "#ff7777", "#ff00ff"};
+        public static string[] Colours =  {"#bbb", "#55e079",   "#00eee0", "#ffd400", "#aaaaff", "#ff7777", "#ff00ff"};
 
         public int GameId { get; set; }
         public List<Player> Players { get; set; }

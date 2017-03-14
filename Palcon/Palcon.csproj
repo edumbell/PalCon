@@ -165,6 +165,7 @@
     <Content Include="Content\space_age.ttf" />
     <Content Include="Content\hours.ttf" />
     <None Include="Scripts\jquery-1.10.2.intellisense.js" />
+    <Content Include="Scripts\ai1.js" />
     <Content Include="Scripts\howler.js" />
     <Content Include="Scripts\jquery-1.10.2.js" />
     <Content Include="Scripts\jquery-1.10.2.min.js" />

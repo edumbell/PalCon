@@ -4,6 +4,7 @@ using System.Linq;
 using System.Web;
 using Microsoft.AspNet.SignalR;
 using Palcon.Models;
+using System.Threading.Tasks;
 namespace Palcon.Controllers
 {
     public class PalconHub : Hub
@@ -34,9 +35,9 @@ namespace Palcon.Controllers
                 //else
                 //    player.PlayerId = 1;
                 player.ConnectionId = Context.ConnectionId;
-
+                player.GameId = toJoin.GameId;
                 toJoin.Players.Add(player);
-                foreach (var p in toJoin.Players)
+                foreach (var p in toJoin.HumanPlayers())
                 {
                     Clients.Client(p.ConnectionId).playerJoined(toJoin.Players.Count());
                 }
@@ -44,6 +45,31 @@ namespace Palcon.Controllers
                 Clients.Client(player.ConnectionId).joinSuccess(toJoin.GameId);
 
             }
+        }
+
+        public override Task OnDisconnected(bool stopCalled)
+        {
+            var ps = Game.Games.SelectMany(x => x.Players).Where(x => x.ConnectionId == Context.ConnectionId).ToList();
+            foreach (var player in ps)
+            {
+                var game = Game.Games.Where(x => x.GameId == player.GameId).Single();
+                if (!game.Started)
+                {
+                    game.Players.Remove(player);
+
+                    foreach (var p in game.HumanPlayers())
+                    {
+                        Clients.Client(p.ConnectionId).playerJoined(game.Players.Count());
+                    }
+                }
+                else
+                {
+                    SendChat(game.GameId, "[has disconnected]");
+                    player.IsDead = true;
+                }
+
+            }
+            return base.OnDisconnected(stopCalled);
         }
 
         public void ClientReadyToStart(int gameId)
@@ -57,13 +83,11 @@ namespace Palcon.Controllers
         public void SendSettings(int gameId, string settings)
         {
             var game = Game.Games.Where(x => x.GameId == gameId).Single();
-            if (!game.Started)
+            foreach (var p in game.HumanPlayers())
             {
-                foreach (var p in game.HumanPlayers())
-                {
-                    Clients.Client(p.ConnectionId).receiveSettings(settings);
-                }
+                Clients.Client(p.ConnectionId).receiveSettings(settings);
             }
+
         }
 
         public int TryStartGame(int gameId)
@@ -130,7 +154,11 @@ namespace Palcon.Controllers
         {
             var game = Game.Games.Where(x => x.GameId == gameId).Single();
             var player = game.LiveHumanPlayers().Where(x => x.ConnectionId == Context.ConnectionId).Single();
-            msg = HttpContext.Current.Server.HtmlEncode(msg);
+            //var player = game.pla().Where(x => x.PlayerId == pid).Single();
+            if (HttpContext.Current != null)
+            {
+                msg = HttpContext.Current.Server.HtmlEncode(msg);
+            }
             foreach (var p in game.LiveHumanPlayers())
             {
                 Clients.Client(p.ConnectionId).receiveChat(player.Colour, msg);

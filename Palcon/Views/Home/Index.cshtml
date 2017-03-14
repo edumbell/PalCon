@@ -24,17 +24,39 @@
             src: url("content/space_age.ttf") format("truetype");
         }
 
-        * {
-            outline-style: none;
-        }
-
         h2 {
+            margin-top:0;
             font-family: space;
         }
 
         h3 {
             color: white;
             margin-top: 10px;
+        }
+        * {
+            outline-style: none;
+        }
+
+        .waitforsignalr {
+            font-size:2em;
+            width:100vw;
+            height:100vh;
+            position:fixed;
+            background-color:black;
+            color:white;
+            text-align:center;
+        }
+            .waitforsignalr > div {
+                width:auto;
+                margin:auto;
+                margin-top:40vh;
+                display:inline-block;
+                position:relative;
+            }
+
+        .top0 {
+            margin-top:5px;
+            margin-bottom:0px;
         }
 
         input {
@@ -142,17 +164,22 @@
             float: left;
             padding: 0 5px;
             margin-right: -99%;
+            width:20%;
         }
 
             #rightcontainer > div {
                 margin-top: 5px;
+                display: inline-block;
+                width: auto;
+                width: 100%;
+                box-sizing:border-box;
             }
 
-        #controls {
-            display: none;
-            float: left;
-            padding: 5px;
-            width: 100%;
+        #rightcontainer > #controls  {
+            visibility:hidden;
+            /*float: left;*/
+            /*padding: 5px;*/
+            /*width: 100%;*/
         }
 
             #controls button {
@@ -166,6 +193,7 @@
             padding: 5px;
             display: none;
             overflow-y: scroll;
+            
         }
 
         #chat_input {
@@ -174,7 +202,7 @@
         }
 
         body {
-            overflow: hidden;
+            
         }
 
         input[type=text] {
@@ -186,6 +214,7 @@
         }
     </style>
     <script src="/Scripts/jquery-1.10.2.min.js"></script>
+    <script src="/Scripts/ai1.js"></script>
     <script src="/Scripts/jquery.signalR-2.1.2.min.js"></script>
     <script src="/signalr/hubs"></script>
     <script src="~/Scripts/howler.js"></script>
@@ -210,6 +239,12 @@
         keyconst.z = [90];
         keyconst.x = [88];
         keyconst.enter = [13];
+
+        function scrollBottom(el) {
+            el.stop();
+            el.animate({ scrollTop: el.prop("scrollHeight") - el.height() }, 1000);
+        }
+
         $(function () {
             myHub = $.connection.palconHub;
 
@@ -222,15 +257,16 @@
 
             myHub.client.receiveChat = function (col, msg) {
 
-                var html = "<div style='color:" + col + "'>"
-                + msg + "</div>";
+                var html = "<br/><span style='color:" + col + "'>"
+                + msg + "</span>";
                 $("#chat_scroller").append(html);
-                $("#chat_scroller").animate({ scrollTop: $("#chat_scroller").height() }, "slow");
+                scrollBottom($("#chat_scroller"));
             }
 
             myHub.client.joinSuccess = function (aGameId) {
+                $(".waitforsignalr").hide();
                 gameId = aGameId;
-                $("button").css('visibility', 'visible');
+                $("#btnStart").css('visibility', 'visible');
                 showSettings();
                 initChat();
                 $(".colours input").on("change", function () {
@@ -260,6 +296,10 @@
                 // INIT GAME
 
                 processGameBoard(map);
+                for (idx in aiPlayersHostedLocally)
+                {
+                    aiPlayersHostedLocally[idx].init();
+                }
                 setTimeout(startTicker, 500);
                 setupDragBoxEvents();
 
@@ -292,8 +332,9 @@
             myHub.client.receiveSettings = function (jsonstr) {
                 console.log('received settings');
                 var settings = JSON.parse(jsonstr);
-                fleetspeed = settings.speed;
-                growthrate = settings.growth;
+                lethargy = settings.lethargy;
+                fleetspeed = settings.speed / 10;
+                growthrate = settings.growth / 900;
                 numPlanetsDesired = settings.ppp;
                 neutralPlanetCost = settings.costs;
                 attackRatio = settings.attack;
@@ -302,7 +343,13 @@
             }
 
             $.connection.hub.start().done(function () {
-                myHub.server.joinGame();
+                try{
+                    myHub.server.joinGame();
+                }
+                catch(ex)
+                {
+                    alert(ex);
+                }
 
                 $(".colours > div > div").on("click", function () {
                     $(this).find("input").select();
@@ -319,7 +366,7 @@
                             cancelRecurringOrders();
                         }
                         if (e.which == keyconst.z[0]) {
-                            e.preventDefault();
+                            //e.preventDefault();
                         }
                     }
                 );
@@ -327,7 +374,7 @@
                     function (e) {
                         keys[e.which] = false;
                         if (e.which == keyconst.z) {
-                            e.preventDefault();
+                            //e.preventDefault();
                         }
                         if (e.which == keyconst.enter) {
                             sendChat();
@@ -380,7 +427,13 @@
         }
 
         function sendChat() {
-            myHub.server.sendChat(gameId, $("#chat_input").val());
+            myHub.server.sendChat(gameId,  $("#chat_input").val());
+            // myHub.server.sendChat(gameId, ownerIndex, $("#chat_input").val());
+            $("#chat_input").val('');
+        }
+
+        function sendAiChat(pid, message) {
+            myHub.server.sendChat(gameId, pid, message);
             $("#chat_input").val('');
         }
 
@@ -393,6 +446,7 @@
 
         function sendSettings() {
             var settings = {};
+            settings.lethargy = $("#lethargy").val();
             settings.speed = $("#fleetspeed").val();
             settings.growth = $("#growthrate").val();
             settings.ppp = $("#ppp").val();
@@ -403,6 +457,7 @@
         }
 
         function showSettings() {
+            $("#lethargy").val(lethargy);
             $("#fleetspeed").val(fleetspeed);
             $("#growthrate").val(growthrate);
             $("#ppp").val(numPlanetsDesired);
@@ -436,6 +491,7 @@
         }
 
         function newGame() {
+            myHub.server.sendChat(gameId, "[has left to start a new game]");
             window.location.reload();
         }
 
@@ -485,6 +541,7 @@
         var msPerTurn = 500;
         var growthrate = 100;
         var fleetspeed = 100;
+        var lethargy = 0;
         var neutralPlanetCost = 50;
         var attackRatio = .8;
 
@@ -798,8 +855,8 @@
                 //this.dx = 0 - this.dx;
                 //this.dy = 0 - this.dy;
             }
-            this.dx = globalscale * Math.cos(angle) * fleetspeed / 10 / ticksPerTurn;
-            this.dy = globalscale * Math.sin(angle) * fleetspeed / 10 / ticksPerTurn;
+            this.dx = globalscale * Math.cos(angle) * fleetspeed /  ticksPerTurn;
+            this.dy = globalscale * Math.sin(angle) * fleetspeed /  ticksPerTurn;
 
             this.shape = fleetShape(Math.sqrt(pop), startPlanet.shape.x, startPlanet.shape.y, owner, angle);
             this.distMidToFront = 1.5;
@@ -1165,7 +1222,7 @@
                         //var distPercent = (distCentres - p.shape.radius) * 100 / xbound;
 
                         arr.push({ planetId: p2.index, dist: distance });
-                        sumInverted += 1 / distance;
+                        sumInverted += 1 / (distance+30);
 
                     }
                 }
@@ -1243,7 +1300,7 @@
                 planetArray.push(newPlanet);
             }
             var growth = 4;
-            var extraCost = 50;
+            var extraCost = 20;
             var numNeutrals = 10 + (numPlayers + 1) * (numPlanetsDesired / 6) + 1;
             if (numNeutrals > 100)
                 numNeutrals = 100;
@@ -1264,7 +1321,7 @@
                         owner: 0,
                         x: Math.random() * (100 - radius * 2) + radius,
                         y: Math.random() * (100 / xbound * ybound - radius * 2) + radius,
-                        pop: growth * neutralPlanetCost / 5 + Math.random() * growth * neutralPlanetCost / 5 + extraCost,
+                        pop: growth * neutralPlanetCost / 4 + Math.random() * growth * neutralPlanetCost / 4 + extraCost,
                         growth: growth,
                         radius: radius
                     };
@@ -1308,8 +1365,8 @@
             globalscale = 1;
             planetRadiusPixels = planetradiuspercent * globalscale * 10;
 
-
-
+            $("#rightcontainer").css({ width: window.innerWidth - swidth -10})
+            $("body").css({ overflow: 'hidden' });
             //var planetsData = generateGameBoard();
 
 
@@ -1358,7 +1415,7 @@
             createjs.Ticker.addEventListener("tick", handleTick);
             timeStartTurn = new Date().getTime();
             myHub.server.sendCommands(gameId, '[]');
-            $("#controls").slideDown(500);
+            $("#controls").css('visibility', 'visible');
             var p = planets[ownerIndex - 1];
             if (p.owner == ownerIndex) {
                 showOrderStart(p.x, p.y, 100, ownerIndex)
@@ -1369,7 +1426,7 @@
 
             if (p.owner > 0) {
                 if (p.pop < p.fullpop) {
-                    p.pop += p.growth * growthrate / ticksPerTurn / 900;
+                    p.pop += p.growth * growthrate / ticksPerTurn;
                 }
 
             }
@@ -1758,43 +1815,70 @@
 
 
         // ======================= AI ==============================
-
         var aiPlayersHostedLocally = [];
-        function AI(ownerId) {
+
+
+        function AI2(ownerId) {
+            this.timeFrameTurns = [5, 10, 20];
             this.ownerId = ownerId;
-            this.planetData = [];
-            this.persistentPlanetData = Array.apply(null, Array(99));
-            for (var idx in this.persistentPlanetData)
-                this.persistentPlanetData[idx] = { lastSent: -4 };
-            this.enmity = Array.apply(null, Array(numPlayers + 3)).map(Number.prototype.valueOf, 1);
-            this.attackPref = Array.apply(null, Array(numPlayers + 3)).map(Number.prototype.valueOf, 1);
-            this.might = Array.apply(null, Array(numPlayers + 3)).map(Number.prototype.valueOf, 1);
+            this.pdata = [];
+            this.rallyPoints = [];
+            this.myPlanets = [];
+            this.announceHateThreshhold = 2;
             function PlanetData(planet) {
                 this.planet = planet;
                 this.planetId = planet.index;
                 this.owner = planet.owner;
-                this.overpop = 0;
-                this.actualDefence = planet.pop;
-                this.actualAttack = 0;
-                this.needsHelp = 0;
-                this.influence = Array.apply(null, Array(numPlayers + 3)).map(Number.prototype.valueOf, 0);
-                this.influenceAddedThisStep = Array.apply(null, Array(numPlayers + 3)).map(Number.prototype.valueOf, 0);
-                this.influence[this.owner] = planet.pop;
+
+                this.desirability = 0; // M, L, size
+
                 this.desirability = planet.growth;
-                this.aiInfluence = 0;
-                this.planetInfluence = 0;
-                this.otherInfluence = 0;
-                this.goodTarget = 0;
-                this.goodRallyPoint = 0;
+
+                this.setStartTurnVals()
+                {
+                    this.aiInfluence = 0;
+                    this.planetInfluence = 0;
+                    this.otherInfluence = 0;
+                    this.goodTarget = 0;
+                    this.goodRallyPoint = 0;
+                    this.influence[this.owner] = planet.pop;
+                    this.aiMaxByTime = Array.apply(null, Array(3)).map(Number.prototype.valueOf, 0);
+                    this.planetMaxByTime = Array.apply(null, Array(3)).map(Number.prototype.valueOf, 0);
+                    this.otherMaxByTime = Array.apply(null, Array(3)).map(Number.prototype.valueOf, 0);
+
+                    this.aiActualByTime = Array.apply(null, Array(3)).map(Number.prototype.valueOf, 0);
+                    this.planetActualByTime = Array.apply(null, Array(3)).map(Number.prototype.valueOf, 0);
+                    this.otherActualByTime = Array.apply(null, Array(3)).map(Number.prototype.valueOf, 0);
+
+                    this.excess = 0; // fleets, maxbytime [S], influence, growth
+                    this.urgency = 0; // fleets, desirability, can keep
+                    this.excessPercent = 0;
+                }
+            }
+
+
+            this.init = function () {
+                // call after planets and players created
+                this.enmity = Array.apply(null, Array(numPlayers+1 )).map(Number.prototype.valueOf, .5);
+                this.attackPref = Array.apply(null, Array(numPlayers + 1)).map(Number.prototype.valueOf, 1);
+                this.might = Array.apply(null, Array(numPlayers + 1)).map(Number.prototype.valueOf, 1);
+
             }
 
             this.processFleetAttack = function (f) {
+                var importance = (f.pop + 1) / (f.pop + f.destination.pop + 50);
                 if (f.destination.owner == this.ownerId)
-                    this.enmity[f.owner] += (f.pop + 1) / (f.pop + f.destination.pop + 10);
+                    this.enmity[f.owner] += importance;
                 else if (f.destination.owner == this.topEnemy)
-                    this.enmity[f.owner] -= (f.pop + 1) / (f.pop + f.destination.pop + 10) / 2;
+                    this.enmity[f.owner] -= importance / 2;
+                else
+                {
+                    this.enmity[f.owner] -= importance / 5;
+                    this.enmity[f.destination.owner] -= importance / 8;
+                }
             }
 
+            //strat1
             this.doInfluenceStep = function (multiplier) {
                 if (!multiplier)
                     multiplier = 50;
@@ -1820,9 +1904,11 @@
                         if (spareInfluence > 0) {
                             for (j in matrix) {
                                 toPlanetData = this.planetData[matrix[j].planetId];
-                                amt = spareInfluence * thisPlanetMultiplier / (matrix[j].dist + 30);
-                                toPlanetData.influenceAddedThisStep[p.owner] += amt;
-                                p.influenceAddedThisStep[p.owner] -= amt * .8; // NB CREATES MORE INFLUENCE THAN POP
+                                if (toPlanetData.owner > 0) {
+                                    amt = spareInfluence * thisPlanetMultiplier / (matrix[j].dist + 40);
+                                    toPlanetData.influenceAddedThisStep[p.owner] += amt;
+                                    p.influenceAddedThisStep[p.owner] -= amt; 
+                                }
                             }
                         }
 
@@ -1863,7 +1949,7 @@
                         p.needsHelp =
                             Math.max(p.actualAttack / p.actualDefence,
                             p.otherInfluence / p.planetInfluence)
-                            * p.desirability;
+                            * (.5 + p.desirability / 4);
 
                         if (p.otherInfluence / p.planetInfluence > 5)
                             p.needsHelp = 0;
@@ -1876,27 +1962,27 @@
                     else {
                         if (p.owner != this.ownerId) {
                             if (p.actualAttack < p.actualDefence) {
-                                p.goodTarget = Math.min(p.aiInfluence / (p.planetInfluence + p.otherInfluence*.6), 2);
+                                p.goodTarget = Math.min(p.aiInfluence / (p.planetInfluence + p.otherInfluence * .6), 2);
 
                                 if (p.goodTarget > .5) {
-                                    p.goodTarget = p.goodTarget * (.5 + p.desirability/2);
+                                    p.goodTarget = p.goodTarget * (.5 + p.desirability / 2);
                                 }
-                                
+
                                 if (p.goodTarget > .3) {
                                     for (j in distanceMatrix[p.planetId]) {
                                         dmd = distanceMatrix[p.planetId][j];
                                         if (this.planetData[dmd.planetId].owner == this.ownerId) {
-                                            this.planetData[dmd.planetId].goodRallyPoint += p.goodTarget * 100 / (dmd.dist+30);
+                                            this.planetData[dmd.planetId].goodRallyPoint += p.goodTarget * 100 / (dmd.dist + 30);
                                         }
                                         else {
-                                            this.planetData[dmd.planetId].goodTarget += p.goodTarget * 20 / (dmd.dist+30); // if not owned and would be good rally point, might be good target
+                                            this.planetData[dmd.planetId].goodTarget += p.goodTarget * 20 / (dmd.dist + 30); // if not owned and would be good rally point, might be good target
                                         }
                                     }
                                 }
                                 p.goodTarget = p.goodTarget * (.5 + Math.max(this.attackPref[p.owner] / 4, 4));
-                            
+
                                 p.goodTarget *= (1 + .5 * Math.random());
-                        }
+                            }
                         }
 
                     }
@@ -1922,13 +2008,16 @@
                 // own planets:  other-influence(danger) vs  self-influence(safety)
                 // other planets:  danger vs greed vs self-influence
                 // send ships to:   short term other>self; long term self>=other
-                this.planetData = [];
-                this.might = Array.apply(null, Array(numPlayers + 3)).map(Number.prototype.valueOf, 0);
+                //this.planetData = [];
+                this.might = Array.apply(null, Array(numPlayers+1)).map(Number.prototype.valueOf, 0);
                 var p;
+                var totalMight = 0;
                 for (var idx in planets) {
                     p = planets[idx];
-                    this.planetData.push(new PlanetData(p));
+                    this.planetData[idx].setStartTurnVals();
+                    //this.planetData.push(new PlanetData(p));
                     this.might[p.owner] += p.pop + p.growth * 10;
+                    totalMight += p.pop + p.growth * 10;
                 }
                 for (var idx in fleets) {
                     f = fleets[idx];
@@ -1959,9 +2048,20 @@
                     }
                 }
                 if (this.topEnemy > 0) {
-                    this.attackPref[this.topEnemy] = this.attackPref[this.topEnemy] * 2 + .8;
+                    var imbalance = topEnemyMight / totalMight;
+                    this.attackPref[this.topEnemy] = this.attackPref[this.topEnemy] * (1 + imbalance) + imbalance;
                 }
 
+                this.announceHateThreshhold *= .97;
+                for (i in this.attackPref) {
+                    
+                    if (this.attackPref[this.topEnemy] > this.announceHateThreshhold) {
+                        this.announceHateThreshhold *= 2;
+                        setTimeout(function () {
+                            sendAiChat('Player ' + i + ', you\'ve pissed me off!');
+                        }, 100);
+                    }
+                }
                 this.doInfluenceStep(40);
 
 
@@ -2009,54 +2109,20 @@
                     }
                 }
 
-                var overpop = overpops[0];
-                if (this.persistentPlanetData[overpop.planetId].lastSent <= turnId - 19) {
-                    //console.log('can send from most-overpop');
-                    if (overpop.overpop > 200) {
-                        //console.log('overpop:')
-                        //console.log(overpop);
-                        for (var idx in distanceMatrix[overpop.planetId]) {
-
-                            var dp = distanceMatrix[overpop.planetId][idx].planetId;
-                            if (planets[dp].owner == this.ownerId) {
-                                //console.log('overpop recipient? ');
-                                //console.log(this.planetData[dp]);
-                                if (
-                                    this.planetData[dp].goodRallyPoint > 10 ||
-                                    this.planetData[dp].overpop < overpop.overpop * .5 * Math.random()) {
-                                    this.checkAndSend(overpop.planetId, dp, 50);
-                                    break;
-
-                                }
-                            }
-                        }
-                    }
-                }
                 for (var r in [0, 1]) {
-                    var rally = bestRallies[r];
-                    for (var idx in distanceMatrix[rally.planetId]) {
-                        var dp = distanceMatrix[rally.planetId][idx].planetId;
-                        if (planets[dp].owner == this.ownerId) {
-                            if (planets[dp].pop > rally.planet.pop / 5) {
-                                if (this.persistentPlanetData[dp].lastSent <= turnId - 15) {
-                                    if (this.planetData[dp].needsHelp <= 0 && planets[dp].pop > 10) {
+                    var rally = this.rallyPoints[r];
 
-                                        this.checkAndSend(dp, rally.planetId, 50);
-                                        break;
-                                    }
-                                }
-                            }
-                        }
-                    }
                 }
                 var target = bestTargets[0];
+                var attackers = [];
+                var attackFleets = 0;
                 for (var idx in distanceMatrix[target.planetId]) {
 
                     var dp = distanceMatrix[target.planetId][idx].planetId;
                     if (planets[dp].owner == this.ownerId) {
                         if (this.persistentPlanetData[dp].lastSent <= turnId - 13) {
 
-                            if ((this.planetData[dp].needsHelp <= .5) && (planets[dp].pop > 10) && this.planetData[dp].planet.pop >= target.planetInfluence / 2) {
+                            if ((this.planetData[dp].needsHelp <= .7) && (planets[dp].pop > 10) && this.planetData[dp].planet.pop >= target.planetInfluence / 2) {
                                 this.checkAndSend(dp, target.planetId, 60);
                                 break;
                             }
@@ -2081,60 +2147,90 @@
             };
 
         }
+
+
     </script>
 
 </head>
 <body onload="" style="margin:0; background-color:#224422">
     <canvas id="PalCanvas" width="1" height="1" style="float:left;"></canvas>
     <div id="pregame" class="clearfix" style="color:white; padding:10px">
-        <h2>PalCon</h2>
+        <h2>PalConq</h2>
+        
+
+
         Waiting for players. Joined: <span id="playersLabel"></span>
         <br /><br />
         Suggestion: Before starting, hit <b>F11</b> to go fullscreen</span>
         <br /><br />
         <button id="btnStart" style="visibility:hidden" onclick="startGame();">START GAME</button>
         <hr />
-        <div class="rows">
-            <h3>Change game settings</h3>
-            <div>
-                <label>Fleet Speed: </label>
-                <input type="text" id="fleetspeed" />
+        <div class="clearfix">
+            <div class="rows">
+                <h3>Change game settings</h3> 
+                <div>
+                    <label>AI Lethargy (%): </label>
+                    <input type="text" id="lethargy" />
+                </div>
+                <div>
+                    <label>Fleet Speed: </label>
+                    <input type="text" id="fleetspeed" />
+                </div>
+                <div>
+                    <label>Growth Rate:</label>
+                    <input type="text" id="growthrate" />
+                </div>
+                <div>
+                    <label># Planets (3 player):</label>
+                    <input type="text" id="ppp" />
+                </div>
+                <div>
+                    <label>Neutral Planet Cost:</label>
+                    <input type="text" id="costs" />
+                </div>
+                <div>
+                    <label>Attack ratio:</label>
+                    <input type="text" id="attack" />
+                </div>
+                <div>
+                    <button style="visibility:hidden" id="btnSettings" onclick="sendSettings();">UPDATE SETTINGS</button>
+                </div>
             </div>
-            <div>
-                <label>Growth Rate:</label>
-                <input type="text" id="growthrate" />
-            </div>
-            <div>
-                <label># Planets (3 player):</label>
-                <input type="text" id="ppp" />
-            </div>
-            <div>
-                <label>Neutral Planet Cost:</label>
-                <input type="text" id="costs" />
-            </div>
-            <div>
-                <label>Attack ratio:</label>
-                <input type="text" id="attack" />
-            </div>
-            <div>
-                <button style="visibility:hidden" id="btnSettings" onclick="sendSettings();">UPDATE SETTINGS</button>
-            </div>
-        </div>
-        <div class="colours">
-            <h3>Choose your preferred colour</h3>
-            <div>
-                @foreach (var colour in Model.Skip(1))
+            <div class="colours">
+                <h3>Choose your preferred colour</h3>
+                <div>
+                    @foreach (var colour in Model.Skip(1))
             {
-                    <div style="border-color:@(colour)">
-                        <input value="@(colour)" type="radio" name="colour" />
-                    </div>
+                        <div style="border-color:@(colour)">
+                            <input value="@(colour)" type="radio" name="colour" />
+                        </div>
                 }
+                </div>
             </div>
         </div>
-
+        <hr />
+        <div>
+            <h3>First Time?</h3>
+            <b>Objective:</b> Annihilate the other players! <small>(Currently, the game won't actually notice when you win.)</small>
+            <br/><br/>
+            Planets have a 'population' and are neutral (grey) or owned by a player.  This can be sent off in ships, or left on the planet to defend against attacking ships
+            <br/><br/>
+            Defending is slightly more efficient than attacking: To capture a neutral planet of 40 population, you need to attack with ships totalling 50 population.  
+            <br /><br />
+            Small, medium, and large planets grow new population at a rate of 1, 2 or 4.
+            <br/><br/>
+            You start with one large planet (as the game starts, a flash of colour and a little circle centering on your planet show you who are)
+            <br/><br/>
+            Start expaneding as fast as possible: find nearby neutral planets with few defenders (remembering that a medium planet is worth two small planets) and send ships big enough to take them.
+            Avoid taking planets right next to strong enemy planets, because you might end up softening up the planet for the enemy.
+            <br/><br/>
+            <b>How to win:</b> Expand fast where no enemies are near.  When neighbours expand close to you, keep some well defended planets on your 'border' as a deterrent.  Keep an eye out for an over-extended neighbour: attack them before their new planets generate too many defenders.
+            <br/><br/>
+            Most importantly, use positioning to encourage your enemies to fight each other.  If caught between them, it may be worth evacuating a few planets and letting the enemies fight it out.
+        </div>
     </div>
     <div id="rightcontainer">
-        <h3>Instructions</h3>
+        <h3 class="top0">Instructions</h3>
         <div id="instructions">
 
             <div>
@@ -2151,15 +2247,26 @@
 
 
         </div>
+        <br />
         <div id="controls" class="clearfix">
             <button id="newgame" onclick="newGame()">Restart</button>
             <button id="surrender" onclick="sendSurrender()">Surrender</button>
         </div>
-        <div id="chat_scroller" style="height:50%">
+        <br />
+        <div id="chat_scroller" style="height:50vh">
+            <div style="height:99%"></div>
         </div>
+        <br/>
         <input type="text" id="chat_input" placeholder="CHAT...." />
 
-
+        
+    </div>
+    <div class="waitforsignalr">
+        <div>
+            Setting up communication with server.
+            <br />
+            Should only take 1 second....
+        </div>
     </div>
 </body>
 </html>
