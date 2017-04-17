@@ -1,4 +1,4 @@
-
+var logAI = 0;
 function AI(ownerId) {
     this.ownerId = ownerId;
     this.planetData = [];
@@ -222,6 +222,10 @@ function AI(ownerId) {
     this.doTurn3 = function () {
         this.doInfluenceStep(70);
     };
+
+    this.doTurn4 = function () {
+        
+    }
 
     this.doTurnFinal = function () {
         if (Math.random() * Math.random() * 100 > lethargy) {

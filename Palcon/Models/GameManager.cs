@@ -5,10 +5,20 @@ using System.Web;
 
 namespace Palcon.Models
 {
+    public struct Colour
+    {
+
+    }
     public class Game
     {
         public static List<Game> Games = new List<Game>();
+        //public static Dictionary<string, string> Colours = new Dictionary<string, string>
+        //{
+        //    {"#bbb", "white" },{ "#55e079", "Green" },{   "#00eee0", "Azure" },{ "#ffd400", "Yellow" },{ "#aaaaff", "Blue" },{ "#ff7777", "Reddish" },{ "#ff00ff","purple"}
+        //};
         public static string[] Colours =  {"#bbb", "#55e079",   "#00eee0", "#ffd400", "#aaaaff", "#ff7777", "#ff00ff"};
+        public static string[] ColourNames = { "white","Green","Azure","Yellow","Blue","Reddish","Purple" };
+        public static int[] ColourIds = { 0,1,2,3,4,5,6};
 
         public int GameId { get; set; }
         public List<Player> Players { get; set; }
@@ -24,20 +34,25 @@ namespace Palcon.Models
 
         public string[] SetUniqueColours()
         {
+            var usedColourIds = new List<int>();
             var usedColours = new List<string>();
-            usedColours.Add(Colours[0]); // neutral planets
+            usedColourIds.Add(0); // neutral planets
+            usedColours.Add(Colours[0]);
+            var r = new Random();
             foreach (var p in Players.OrderBy(p => p.PlayerId))
             {
-                if (usedColours.Contains(p.Colour))
+                if (usedColourIds.Contains(p.ColourId))
                 {
-                    var possibles = Colours.Where(x => !usedColours.Contains(x));
-                    var r = new Random();
+                    var possibles = ColourIds.Where(x => !usedColourIds.Contains(x));
                     if (possibles.Any())
                     {
-                        p.Colour = possibles.OrderBy(x => r.Next(50)).First();
+                        p.ColourId = possibles.OrderBy(x => r.Next(50)).First();
                     }
                 }
-                usedColours.Add(p.Colour);
+                usedColourIds.Add(p.ColourId);
+                p.Name = ColourNames[p.ColourId];
+                p.Colour = Colours[p.ColourId];
+                usedColours.Add(Colours[p.ColourId]);
             }
             return usedColours.ToArray();
 
@@ -50,7 +65,7 @@ namespace Palcon.Models
 
         public List<Player> LiveHumanPlayers()
         {
-            return Players.Where(x => !x.IsDead && ! x.IsAI).ToList();
+            return Players.Where(x => !x.IsDead && !x.IsAI).ToList();
         }
 
         public List<Player> HumanPlayers()
@@ -98,6 +113,7 @@ namespace Palcon.Models
         public int PlayerId { get; set; }
         public string Name { get; set; }
         public string Colour { get; set; }
+        public int ColourId { get; set; }
         public bool IsDead { get; set; }
         public string ConnectionId { get; set; }
         public bool IsReadyToStart { get; set; }

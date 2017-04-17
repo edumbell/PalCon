@@ -64,7 +64,7 @@ namespace Palcon.Controllers
                 }
                 else
                 {
-                    SendChat(game.GameId, "[has disconnected]");
+                    SendChat(game.GameId,player.PlayerId,null, "[has disconnected]");
                     player.IsDead = true;
                 }
 
@@ -116,16 +116,22 @@ namespace Palcon.Controllers
         public void SendMap(int gameId, string json, int numAiPlayers)
         {
             var game = Game.Games.Where(x => x.GameId == gameId).Single();
-            for (var a = 0; a < numAiPlayers; a++)
-            {
-                game.Players.Add(new Player() { ConnectionId = "ai", IsAI = true, IsReadyToStart = true });
-            }
             int pid = 0;
-            var colours = game.SetUniqueColours();
             foreach (var p in game.LiveHumanPlayers())
             {
                 pid++;
                 p.PlayerId = pid;
+            }
+            for (var a = 0; a < numAiPlayers; a++)
+            {
+                pid++;
+                game.Players.Add(new Player() { ConnectionId = "ai", PlayerId = pid, IsAI = true, IsReadyToStart = true,
+                 });
+            }
+            
+            var colours = game.SetUniqueColours();
+            foreach (var p in game.LiveHumanPlayers())
+            {
                 Clients.Client(p.ConnectionId).receiveMap(p.PlayerId, json,
                     Newtonsoft.Json.JsonConvert.SerializeObject(colours));
             }
@@ -140,28 +146,36 @@ namespace Palcon.Controllers
             }
         }
 
-        public void SendColour(int gameId, string col)
+        public void SendColour(int gameId, int col)
         {
             var game = Game.Games.Where(x => x.GameId == gameId).Single();
             if (!game.Started)
             {
                 var player = game.LiveHumanPlayers().Where(x => x.ConnectionId == Context.ConnectionId).Single();
-                player.Colour = col;
+                player.ColourId = col;
             }
         }
 
-        public void SendChat(int gameId, string msg)
+        public void SendChat(int gameId, int pid, int? toPid, string msg)
         {
             var game = Game.Games.Where(x => x.GameId == gameId).Single();
-            var player = game.LiveHumanPlayers().Where(x => x.ConnectionId == Context.ConnectionId).Single();
-            //var player = game.pla().Where(x => x.PlayerId == pid).Single();
+            var player = game.Players.Where(x =>  x.PlayerId == pid).Single();
+            string toname = "";
             if (HttpContext.Current != null)
             {
                 msg = HttpContext.Current.Server.HtmlEncode(msg);
             }
+            if (toPid.HasValue)
+            {
+                var player2 = game.Players.Where(x =>  x.PlayerId == toPid).Single();
+                toname = "<span style=\"color:" + player2.Colour + "\">" + player2.Name + "</span>";
+                msg = "<span class='aichat'>" + msg + "</span>";
+            }
+            //var player = game.pla().Where(x => x.PlayerId == pid).Single();
+            
             foreach (var p in game.LiveHumanPlayers())
             {
-                Clients.Client(p.ConnectionId).receiveChat(player.Colour, msg);
+                Clients.Client(p.ConnectionId).receiveChat(player.Colour, string.Format( msg, toname) );
             }
         }
 
