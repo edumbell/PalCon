@@ -535,7 +535,7 @@
                 if (numPlayers > 0) {
                     console.log('server says numplayers: ' + numPlayers);
 
-                    while (numPlayers < 2) {
+                    while (numPlayers < 3) {
                         if (numPlayers >= 5) {
                             aiPlayersHostedLocally.push(new AI(numPlayers + 1));
                         }
@@ -1380,7 +1380,7 @@
                     }
                 }
                 planetArray.push(newPlanet);
-                bigpop = 1;
+                //bigpop = 100;
             }
             var growth = 4;
             var extraCost = 20;
