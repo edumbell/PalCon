@@ -435,11 +435,9 @@
 
             myHub.client.receiveSettings = function (jsonstr) {
                 console.log('received settings');
-                var settings = JSON.parse(jsonstr);
-                lethargy = settings.lethargy;
+                settings = JSON.parse(jsonstr);
                 fleetspeed = settings.speed / 10;
                 growthrate = settings.growth / 900;
-                numPlanetsDesired = settings.ppp;
                 neutralPlanetCost = settings.costs;
                 attackRatio = settings.attack;
                 minPlayers = settings.minPlayers;
@@ -565,13 +563,13 @@
         }
 
         function showSettings() {
-            $("#lethargy").val(lethargy);
-            $("#fleetspeed").val(fleetspeed);
-            $("#growthrate").val(growthrate);
-            $("#ppp").val(numPlanetsDesired);
-            $("#costs").val(neutralPlanetCost);
-            $("#attack").val(attackRatio);
-            $("#minplayers").val(minPlayers);
+            $("#lethargy").val(settings.lethargy);
+            $("#fleetspeed").val(settings.speed);
+            $("#growthrate").val(settings.growth);
+            $("#ppp").val(settings.ppp);
+            $("#costs").val(settings.costs);
+            $("#attack").val(settings.attack);
+            $("#minplayers").val(settings.minPlayers);
         }
 
         function sendQueue(json) {
@@ -670,17 +668,19 @@
 
         var ticksPerTurn = 10;
         var msPerTurn = 500;
-        var growthrate = 100;
-        var fleetspeed = 100;
-        var lethargy = 0;
-        var neutralPlanetCost = 50;
-        var attackRatio = .8;
-        var minPlayers = 4;
+        var settings = {};
+        settings.growth = 100;
+        settings.speed = 100;
+        settings.lethargy = 0;
+        settings.costs = 50;
+        settings.attack = .8;
+        settings.minPlayers = 4;
+        settings.ppp = 30;
 
         var planetradiuspercent = 1.9;
         var planetRadiusPixels = 0;
+        
 
-        var numPlanetsDesired = 30;
         var numPlayers = 0;
         var gameId;
 
@@ -1438,7 +1438,7 @@
             }
             var growth = 4;
             var extraCost = 20;
-            var numNeutrals = 10 + (numPlayers + 1) * (numPlanetsDesired / 6) + 1;
+            var numNeutrals = 10 + (numPlayers + 1) * (settings.ppp / 6) + 1;
             if (numNeutrals > 100)
                 numNeutrals = 100;
             var got = Array.apply(null, Array(numPlayers + 1)).map(Number.prototype.valueOf, 0);
@@ -1479,7 +1479,7 @@
                 var next = getMinIndex(got);
                 //console.log(next);
                 //newPlanet.owner = next;
-                got[next] += newPlanet.pop;
+                got[next] += newPlanet.pop + newPlanet.growth*4;
                 planetArray.push(newPlanet);
 
             }
@@ -2299,7 +2299,7 @@
             this.doTurn1 = function () {
                 var idx;
                 var i;
-                this.doThisTurn = Math.random() * Math.random() * 100 > lethargy
+                this.doThisTurn = Math.random() * Math.random() * 100 > settings.lethargy
                 && turnId % 2 == 0;
                 if (this.doThisTurn) {
 
