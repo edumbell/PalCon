@@ -64,7 +64,7 @@ namespace Palcon.Controllers
                 }
                 else
                 {
-                    SendChat(game.GameId,player.PlayerId,null, "[has disconnected]");
+                    SendChat(game.GameId, player.PlayerId, null, "[has disconnected]");
                     player.IsDead = true;
                 }
 
@@ -125,10 +125,15 @@ namespace Palcon.Controllers
             for (var a = 0; a < numAiPlayers; a++)
             {
                 pid++;
-                game.Players.Add(new Player() { ConnectionId = "ai", PlayerId = pid, IsAI = true, IsReadyToStart = true,
-                 });
+                game.Players.Add(new Player()
+                {
+                    ConnectionId = "ai",
+                    PlayerId = pid,
+                    IsAI = true,
+                    IsReadyToStart = true,
+                });
             }
-            
+
             var colours = game.SetUniqueColours();
             foreach (var p in game.LiveHumanPlayers())
             {
@@ -153,13 +158,23 @@ namespace Palcon.Controllers
             {
                 var player = game.LiveHumanPlayers().Where(x => x.ConnectionId == Context.ConnectionId).Single();
                 player.ColourId = col;
+                player.Colour = Game.Colours[col];
             }
         }
 
-        public void SendChat(int gameId, int pid, int? toPid, string msg)
+        public void SendChat(int gameId, int? pid, int? toPid, string msg)
         {
             var game = Game.Games.Where(x => x.GameId == gameId).Single();
-            var player = game.Players.Where(x =>  x.PlayerId == pid).Single();
+            Player player;
+            if (pid.HasValue)
+            {
+                player = game.Players.Where(x => x.PlayerId == pid).Single();
+            }
+            else
+            {
+                // game not started yet - no AI's
+                player = game.LiveHumanPlayers().Where(x => x.ConnectionId == Context.ConnectionId).Single();
+            }
             string toname = "";
             if (HttpContext.Current != null)
             {
@@ -167,15 +182,15 @@ namespace Palcon.Controllers
             }
             if (toPid.HasValue)
             {
-                var player2 = game.Players.Where(x =>  x.PlayerId == toPid).Single();
-                toname = "<span style=\"color:" + player2.Colour + "\">" + player2.Name + "</span>";
+                var player2 = game.Players.Where(x => x.PlayerId == toPid).Single();
+                toname = "<span class='chatname' style=\"border-color:" + player2.Colour + "\">" + player2.Name + "</span>";
                 msg = "<span class='aichat'>" + msg + "</span>";
             }
             //var player = game.pla().Where(x => x.PlayerId == pid).Single();
-            
+
             foreach (var p in game.LiveHumanPlayers())
             {
-                Clients.Client(p.ConnectionId).receiveChat(player.Colour, string.Format( msg, toname) );
+                Clients.Client(p.ConnectionId).receiveChat(player.Colour, string.Format(msg, toname));
             }
         }
 
