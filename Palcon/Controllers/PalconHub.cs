@@ -190,7 +190,7 @@ namespace Palcon.Controllers
 
             foreach (var p in game.LiveHumanPlayers())
             {
-                Clients.Client(p.ConnectionId).receiveChat(player.Colour, string.Format(msg, toname));
+                Clients.Client(p.ConnectionId).receiveChat(player.PlayerId, string.Format(msg, toname));
             }
         }
 

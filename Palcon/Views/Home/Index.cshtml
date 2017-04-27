@@ -38,7 +38,9 @@
             outline-style: none;
         }
 
-        a {color: #aec;}
+        a {
+            color: #aec;
+        }
 
         .chrome_warning {
             display: none;
@@ -75,9 +77,9 @@
         }
 
         .more_button {
-            display:inline-block;
-            font-size:.7em;
-            margin-bottom:10px;
+            display: inline-block;
+            font-size: .7em;
+            margin-bottom: 10px;
         }
 
         .top0 {
@@ -336,6 +338,34 @@
             el.animate({ scrollTop: el.prop("scrollHeight") - el.height() }, 1000);
         }
 
+        function processCheatCode(pid, msg) {
+            if (msg == 'loveme') {
+                var ai;
+                for (var i in aiPlayersHostedLocally) {
+                    ai = aiPlayersHostedLocally[i];
+                    ai.loversPlayer = pid;
+                }
+            }
+        }
+
+        function resize() {
+            stage.canvas.width = window.innerHeight * 1.5;
+            stage.canvas.height = window.innerHeight;
+            //document.getElementById("PalCanvas").setAttribute('width', window.innerHeight * 1.5);
+            //document.getElementById("PalCanvas").setAttribute('height', window.innerHeight);
+            var swidth = document.getElementById("PalCanvas").width;
+            var sheight = document.getElementById("PalCanvas").height;
+            globalscale = 1;
+            planetRadiusPixels = planetradiuspercent * globalscale * 10;
+
+            $("#rightcontainer").css({ width: window.innerWidth - swidth - 10 })
+
+            stage.scaleX = stage.scaleY = swidth / 1000;
+            ybound = 1000 * sheight / swidth;
+            xbound = 1000;
+
+        }
+
         $(function () {
 
             $(".more_button").on("click", function () {
@@ -352,9 +382,13 @@
 
             }
 
-            myHub.client.receiveChat = function (col, msg) {
 
-                var html = "<br/><span style='color:" + col + "'>"
+
+            myHub.client.receiveChat = function (pid, msg) {
+                if (aiPlayersHostedLocally.length > 0) {
+                    processCheatCode(pid, msg);
+                }
+                var html = "<br/><span style='color:" + ownercolours[pid] + "'>"
                 + msg + "</span>";
                 $("#chat_scroller").append(html);
                 scrollBottom($("#chat_scroller"));
@@ -406,6 +440,7 @@
                 }
                 setTimeout(startTicker, 500);
                 setupDragBoxEvents();
+                window.addEventListener('resize', resize, false);
 
             }
 
@@ -679,7 +714,7 @@
 
         var planetradiuspercent = 1.9;
         var planetRadiusPixels = 0;
-        
+
 
         var numPlayers = 0;
         var gameId;
@@ -1047,6 +1082,10 @@
                                 volume = .5;
                             playSound(sound_warning, fromPlanet.x, rate, volume);
                         }
+                        for (var a in aiPlayersHostedLocally) {
+                            aiPlayersHostedLocally[a].processFleetAttack(f);
+                        }
+
                     }
                     else {
                         console.log('no pop? or planet changed hands since command sent?');
@@ -1479,7 +1518,7 @@
                 var next = getMinIndex(got);
                 //console.log(next);
                 //newPlanet.owner = next;
-                got[next] += newPlanet.pop + newPlanet.growth*4;
+                got[next] += newPlanet.pop + newPlanet.growth * 4;
                 planetArray.push(newPlanet);
 
             }
@@ -1500,14 +1539,8 @@
                     return false;
                 }
             }, false);
-            document.getElementById("PalCanvas").setAttribute('width', window.innerHeight * 1.5);
-            document.getElementById("PalCanvas").setAttribute('height', window.innerHeight);
-            var swidth = document.getElementById("PalCanvas").width;
-            var sheight = document.getElementById("PalCanvas").height;
-            globalscale = 1;
-            planetRadiusPixels = planetradiuspercent * globalscale * 10;
 
-            $("#rightcontainer").css({ width: window.innerWidth - swidth - 10 })
+
             $("body").css({ overflow: 'hidden' });
             //var planetsData = generateGameBoard();
 
@@ -1516,12 +1549,11 @@
 
             // code here.
             stage = new createjs.Stage("PalCanvas");
+            resize();
             stage.enableMouseOver(10);
             stage.update();
 
-            stage.scaleX = stage.scaleY = swidth / 1000;
-            ybound = 1000 * sheight / swidth;
-            xbound = 1000;
+
             stage.addChild(bg());
             layers.planets = new createjs.Container();
             layers.paths = new createjs.Container();
@@ -1718,10 +1750,6 @@
 
             if (f.owner != f.destination.owner) {
                 // ATTACK
-
-                for (var a in aiPlayersHostedLocally) {
-                    aiPlayersHostedLocally[a].processFleetAttack(f);
-                }
 
                 var rate = 3 - 10 * landPop / (f.destination.pop + 10);
                 if (rate < .5)
@@ -2004,7 +2032,7 @@
             this.myPlanets = [];
             this.mapWideDanger = 0;
             this.announceHateThreshhold = 2;
-
+            this.loversPlayer = -1;
             function PlanetData(planet) {
                 this.planet = planet;
                 this.planetId = planet.index;
@@ -2042,7 +2070,7 @@
                     this.aiActualByTime = Array.apply(null, Array(4)).map(Number.prototype.valueOf, 0);
                     this.planetActualByTime = Array.apply(null, Array(4)).map(Number.prototype.valueOf, 0);
                     this.otherActualByTime = Array.apply(null, Array(4)).map(Number.prototype.valueOf, 0);
-
+                    this.actualByOwner = Array.apply(null, Array(numPlayers + 1)).map(Number.prototype.valueOf, 0);
                     this.safetyMargin = 0; // fleets, maxbytime [S]?, influence
                     this.want = 0; //
                     this.urgency = 0; // fleets, desirability, can keep
@@ -2073,22 +2101,34 @@
             }
 
             this.processFleetAttack = function (f) {
-                if (f.destination.owner > 0) {
-                    var importance = (f.pop + 3) / (this.might[f.owner] / 10 + f.destination.pop + 3) / 3;
-                    if (f.destination.owner == this.ownerId) {
-                        this.enmity[f.owner] += importance;
-                        this.enmity[f.owner] = Math.max(this.enmity[f.owner], importance * 6);
+                var p = this.planetData[f.destination.index];
+                var effectiveOwner = p.effectiveOwner;
+                this.log('effective owner: ' + effectiveOwner);
 
-
-                    }
-                    else if (f.destination.owner == this.topEnemy) {
-                        this.enmity[f.owner] -= importance / 2;
-                        this.enmity[f.destination.owner] -= importance / 10;
-                    }
-                    else {
-                        this.enmity[f.owner] -= importance / 5;
-                        this.enmity[f.destination.owner] -= importance / 8;
-                    }
+                if (effectiveOwner > 0 && effectiveOwner != f.owner && f.owner != p.owner) {
+                	var effectivePop = p.actualByOwner[effectiveOwner];
+                	var attackingPop =  p.actualByOwner[f.owner];
+                	var maxToTake = Math.max(0, effectivePop - attackingPop * attackRatio);
+                	var taking = Math.min(f.pop * attackRatio, maxToTake);
+                	if (taking > 0)
+                	{
+                		var worth  = Math.max(effectivePop, p.desirability * 5) + p.desirability*5;
+                		this.log('taking : ' + taking);
+                		var importance = (taking / effectivePop * worth) / (this.might[f.owner] / 10 + this.might[effectiveOwner]);
+                		this.log('imp: ' + importance);
+                		if (effectiveOwner == this.ownerId) {
+                			this.enmity[f.owner] += importance;
+                			this.enmity[f.owner] = Math.max(this.enmity[f.owner], importance * 6);
+                		}
+                		else if (effectiveOwner == this.topEnemy) {
+                			this.enmity[f.owner] -= importance / 2;
+                			this.enmity[effectiveOwner] -= importance / 10;
+                		}
+                		else {
+                			this.enmity[f.owner] -= importance / 5;
+                			this.enmity[effectiveOwner] -= importance / 8;
+                		}
+                	}
                 }
             }
 
@@ -2201,7 +2241,7 @@
 
                 for (idx = 1 ; idx <= numPlayers; idx++) {
                     if (idx != this.ownerId) {
-                        var add = (this.threatInfluence[idx] / (this.might[idx] / 2 + this.might[this.ownerId] + 10)) * .1;
+                        var add = (this.threatInfluence[idx] / (this.might[idx] / 2 + this.might[this.ownerId] + 10)) * .01;
 
                         this.enmity[idx] += add;
                     }
@@ -2301,148 +2341,159 @@
                 var i;
                 this.doThisTurn = Math.random() * Math.random() * 100 > settings.lethargy
                 && turnId % 2 == 0;
-                if (this.doThisTurn) {
 
 
-                    // own planets:  other-influence(danger) vs  self-influence(safety)
-                    // other planets:  danger vs greed vs self-influence
-                    // send ships to:   short term other>self; long term self>=other
-
-                    this.might = Array.apply(null, Array(numPlayers + 1)).map(Number.prototype.valueOf, 0);
-                    this.numShips = Array.apply(null, Array(numPlayers + 1)).map(Number.prototype.valueOf, 0);
-                    var p;
-                    var totalMight = 0;
-                    var planetMight;
-                    for (idx in planets) {
-
-                        p = this.planetData[idx];
-                        p.setStartTurnVals();
-                        //this.planetData.push(new PlanetData(p));
-
-                        if (p.owner > 0) {
-                            planetMight = p.planet.pop + (80) * p.growthPerTurn;
-                            this.might[p.owner] += planetMight;
-                            totalMight += planetMight;
-                            this.numShips[p.owner] += p.planet.pop;
-                        }
 
 
-                        // TODO:
-                        p.planetActualByTime[0] = p.planet.pop;
-                        p.planetMaxByTime[0] = p.planet.pop;
+                // own planets:  other-influence(danger) vs  self-influence(safety)
+                // other planets:  danger vs greed vs self-influence
+                // send ships to:   short term other>self; long term self>=other
 
-                        if (p.owner > 0) {
-                            p.planetActualByTime[0] += this.timeRanges[0] * p.growthPerTurn * .2;
-                            p.planetActualByTime[1] = this.timeRanges[0] * p.growthPerTurn;
-                            p.planetActualByTime[2] = this.timeRanges[1] * p.growthPerTurn;
-                            p.planetActualByTime[3] = this.timeRanges[2] * p.growthPerTurn;
+                this.might = Array.apply(null, Array(numPlayers + 1)).map(Number.prototype.valueOf, 0);
+                this.numShips = Array.apply(null, Array(numPlayers + 1)).map(Number.prototype.valueOf, 0);
+                var p;
+                var totalMight = 0;
+                var planetMight;
+                for (idx in planets) {
 
-                            p.planetMaxByTime[0] += this.timeRanges[0] * p.growthPerTurn;
-                            p.planetMaxByTime[1] = this.timeRanges[1] * p.growthPerTurn;
-                            p.planetMaxByTime[2] = this.timeRanges[2] * p.growthPerTurn;
-                            p.planetMaxByTime[3] = this.timeRanges[2] * p.growthPerTurn * 1.5;
-                        }
-                        if (p.owner == this.ownerId) {
-                            for (r = 0; r <= 3; r++) {
-                                p.aiMaxByTime[r] = p.planetMaxByTime[r];
-                                p.aiActualByTime[r] = p.planetActualByTime[r];
-                            }
-                        }
-                    }
-                    var r;
-                    for (idx in fleets) {
-                        f = fleets[idx];
-                        p = this.planetData[f.destination.index];
+                    p = this.planetData[idx];
+                    p.setStartTurnVals();
+                    //this.planetData.push(new PlanetData(p));
 
-                        mult = 400 / (Math.max(200, f.distToGo) + 200);
-                        //if (f.owner == p.owner) {
-                        //    p.actualDefence += f.pop * mult;
-                        //}
-                        //else {
-                        //    mult = mult * .8;
-                        //    p.actualAttack += f.pop * mult;
-                        //}
-                        p.influence[f.owner] += f.pop * mult;
-                        this.might[f.owner] += f.pop;
-                        totalMight += f.pop;
-                        this.numShips[f.owner] += f.pop
-
-                        r = this.getTimeRange(f.distToGo);
-
-                        if (f.owner == p.owner) {
-                            p.planetActualByTime[r] += f.pop;
-                            p.planetMaxByTime[r] += f.pop;
-                        }
-                        if (f.owner == this.ownerId) {
-                            p.aiActualByTime[r] += f.pop;
-                            p.aiMaxByTime[r] += f.pop;
-                        }
-                        else if (f.owner != p.owner) {
-                            //p.planetActualByTime[r] -= f.pop;
-                            //p.planetMaxByTime[r] -= f.pop;
-                            p.otherActualByTime[r] += f.pop;
-                            p.otherMaxByTime[r] += f.pop;
-
-                        }
-                        else if (p.owner == this.ownerId) {
-                            //p.aiActualByTime[r] -= f.pop;
-                            //p.aiMaxByTime[r] -= f.pop;
-                        }
-
+                    if (p.owner > 0) {
+                        planetMight = p.planet.pop + (80) * p.growthPerTurn;
+                        this.might[p.owner] += planetMight;
+                        totalMight += planetMight;
+                        this.numShips[p.owner] += p.planet.pop;
                     }
 
-                    this.topEnemy = -1;
-                    var topEnemyMight = -1;
 
-                    if (this.might[this.ownerId] == 0)
-                        this.isDead = true;
+                    // TODO:
+                    p.planetActualByTime[0] = p.planet.pop;
+                    p.actualByOwner[p.owner] += p.planet.pop / attackRatio;
+                    p.planetMaxByTime[0] = p.planet.pop;
 
-                    for (i in this.might) {
-                        if (i > 0 && i != this.ownerId) {
-                            this.attackPref[i] = Math.max(this.enmity[i], 0);
-                            this.enmitySendRatio[i] = Math.min(.8, Math.max(this.enmity[i], .3));
-                            if (this.might[i] > topEnemyMight) {
-                                this.topEnemy = i;
-                                topEnemyMight = this.might[i];
-                            }
+                    if (p.owner > 0) {
+                        p.planetActualByTime[0] += this.timeRanges[0] * p.growthPerTurn * .2;
+                        p.planetActualByTime[1] = this.timeRanges[0] * p.growthPerTurn;
+                        p.planetActualByTime[2] = this.timeRanges[1] * p.growthPerTurn;
+                        p.planetActualByTime[3] = this.timeRanges[2] * p.growthPerTurn;
+
+                        p.planetMaxByTime[0] += this.timeRanges[0] * p.growthPerTurn;
+                        p.planetMaxByTime[1] = this.timeRanges[1] * p.growthPerTurn;
+                        p.planetMaxByTime[2] = this.timeRanges[2] * p.growthPerTurn;
+                        p.planetMaxByTime[3] = this.timeRanges[2] * p.growthPerTurn * 1.5;
+                    }
+                    if (p.owner == this.ownerId) {
+                        for (r = 0; r <= 3; r++) {
+                            p.aiMaxByTime[r] = p.planetMaxByTime[r];
+                            p.aiActualByTime[r] = p.planetActualByTime[r];
                         }
                     }
-                    if (this.topEnemy > 0) {
-                        var imbalance = Math.min(10, topEnemyMight / (totalMight - topEnemyMight + 1));
+                }
+                var r;
+                for (idx in fleets) {
+                    f = fleets[idx];
+                    p = this.planetData[f.destination.index];
 
-                        this.enmity[this.topEnemy] = Math.max(this.enmity[this.topEnemy], 1 + imbalance);
+                    mult = 400 / (Math.max(200, f.distToGo) + 200);
+                    //if (f.owner == p.owner) {
+                    //    p.actualDefence += f.pop * mult;
+                    //}
+                    //else {
+                    //    mult = mult * .8;
+                    //    p.actualAttack += f.pop * mult;
+                    //}
+                    p.influence[f.owner] += f.pop * mult;
+                    this.might[f.owner] += f.pop;
+                    totalMight += f.pop;
+                    this.numShips[f.owner] += f.pop
 
+                    r = this.getTimeRange(f.distToGo);
+
+                    if (f.owner == p.owner) {
+                        p.planetActualByTime[r] += f.pop;
+                        p.planetMaxByTime[r] += f.pop;
+                    }
+                    if (f.owner == this.ownerId) {
+                        p.aiActualByTime[r] += f.pop;
+                        p.aiMaxByTime[r] += f.pop;
+                    }
+                    else if (f.owner != p.owner) {
+                        //p.planetActualByTime[r] -= f.pop;
+                        //p.planetMaxByTime[r] -= f.pop;
+                        p.otherActualByTime[r] += f.pop;
+                        p.actualByOwner[f.owner] += f.pop;
+                        p.otherMaxByTime[r] += f.pop;
+
+                    }
+                    else if (p.owner == this.ownerId) {
+                        //p.aiActualByTime[r] -= f.pop;
+                        //p.aiMaxByTime[r] -= f.pop;
+                    }
+
+                }
+                for (idx in planets) {
+                	p = this.planetData[idx];
+                	p.effectiveOwner = getMaxIndex(p.actualByOwner);
+                }
+                this.topEnemy = -1;
+                var topEnemyMight = -1;
+
+                if (this.might[this.ownerId] == 0)
+                    this.isDead = true;
+
+                for (i in this.might) {
+                    if (i > 0 && i != this.ownerId) {
+                        this.attackPref[i] = Math.max(this.enmity[i], 0);
+                        this.enmitySendRatio[i] = Math.min(.8, Math.max(this.enmity[i], .3));
+                        if (this.might[i] > topEnemyMight) {
+                            this.topEnemy = i;
+                            topEnemyMight = this.might[i];
+                        }
+                    }
+                }
+                if (this.topEnemy > 0) {
+                    var imbalance = Math.min(10, topEnemyMight / (totalMight - topEnemyMight + 1));
+
+                    this.enmity[this.topEnemy] = Math.max(this.enmity[this.topEnemy], 1 + imbalance);
+
+                    this.mapWideDanger = 0;
+                    if (this.numShips[this.topEnemy] > this.numShips[this.ownerId]) {
+                        this.mapWideDanger = Math.sqrt(this.numShips[this.topEnemy] - this.numShips[this.ownerId]);
+                    }
+                    if (this.mapWideDanger < 0)
                         this.mapWideDanger = 0;
-                        if (this.numShips[this.topEnemy] > this.numShips[this.ownerId]) {
-                            this.mapWideDanger = Math.sqrt(this.numShips[this.topEnemy] - this.numShips[this.ownerId]);
-                        }
-                        if (this.mapWideDanger < 0)
-                            this.mapWideDanger = 0;
-                        this.attackPref[this.topEnemy] = Math.max(0, this.attackPref[this.topEnemy]) * (1 + imbalance / 2) + imbalance / 2;
-                    }
+                    this.attackPref[this.topEnemy] = Math.max(0, this.attackPref[this.topEnemy]) * (1 + imbalance / 2) + imbalance / 2;
+                }
 
-                    if (this.announceHateThreshhold > 1) { this.announceHateThreshhold *= .998; }
-                    if (!this.isDead) {
-                        for (i in this.attackPref) {
-                            if (i > 0) {
-                                if (this.enmity[i] > 1 && this.enmity[i] > this.announceHateThreshhold) {
-                                    this.announceHateThreshhold = this.announceHateThreshhold * 2 + 1;
-                                    var thisAi = this;
-                                    var toAi = i;
-                                    var msg = '';
-                                    if (this.might[this.ownerId] * 3 < this.might[i])
-                                        msg = getHelpMsg(this.enmity[i]);
-                                    else if (this.topEnemy == i && this.might[this.ownerId] < this.might[i])
-                                        msg = 'Everyone attack {0}!';
-                                    else
-                                        msg = getThreatMsg(this.enmity[i]);
-                                    setTimeout(function () {
-                                        sendFormattedChat(thisAi.ownerId, toAi, msg);
-                                    }, 100);
-                                }
+                if (this.announceHateThreshhold > 1) { this.announceHateThreshhold *= .998; }
+                if (!this.isDead) {
+                    if (this.loversPlayer > 0) {
+                        this.enmity[this.loversPlayer] = -10;
+                        this.attackPref[this.loversPlayer] = -10;
+                    }
+                    for (i in this.attackPref) {
+                        if (i > 0) {
+                            if (this.enmity[i] > 1 && this.enmity[i] > this.announceHateThreshhold) {
+                                this.announceHateThreshhold = this.announceHateThreshhold * 2 + 1;
+                                var thisAi = this;
+                                var toAi = i;
+                                var msg = '';
+                                if (this.might[this.ownerId] * 3 < this.might[i])
+                                    msg = getHelpMsg(this.enmity[i]);
+                                else if (this.topEnemy == i && this.might[this.ownerId] < this.might[i])
+                                    msg = 'Everyone attack {0}!';
+                                else
+                                    msg = getThreatMsg(this.enmity[i]);
+                                setTimeout(function () {
+                                    sendFormattedChat(thisAi.ownerId, toAi, msg);
+                                }, 100);
                             }
                         }
                     }
+                }
+                if (this.doThisTurn) {
                     this.doInfluenceStep(40);
 
                 }
@@ -2586,13 +2637,14 @@
                             // thumbsuck just to see if target worth investigating
                             var numplanets = this.myPlanets.length;
                             var likelymight = this.might[this.ownerId] / (numplanets + 4);
-                            goodTarget1 = (p.aiInfluence + likelymight / 5) / (p.planetInfluence + p.otherInfluence - p.aiInfluence + 5 / p.desirability);
-                            goodTarget2 = (Math.max(likelymight / 2 + p.aiMaxByTime[3] / 2, p.aiMaxByTime[3])) / (p.oppositionByTime[3] + 5 / p.desirability);
+                            var likelydefmight = (this.might[p.owner] + this.might[p.effectiveOwner]) / 20;
+                            goodTarget1 = (p.aiInfluence + likelymight / 5) / (p.planetInfluence + p.otherInfluence - p.aiInfluence + 5 / p.desirability + likelydefmight / 5);
+                            goodTarget2 = (Math.max(likelymight / 2 + p.aiMaxByTime[3] / 2, p.aiMaxByTime[3])) / (p.oppositionByTime[3] + 5 / p.desirability + likelydefmight / 5);
                             goodTarget3 = (p.aiMaxByTime[1]) / (p.oppositionByTime[1]);
                             p.goodTarget = (goodTarget1 + goodTarget2 + goodTarget3) / 3
                             //+ Math.max(goodTarget1, goodTarget2, goodTarget3) / 2;
                             if (p.goodTarget > 0) {
-                                p.goodTarget *= Math.min(2, (.1 + this.attackPref[p.owner] * .9));
+                                p.goodTarget *= Math.min(2, (-.5 + this.attackPref[p.effectiveOwner] * 1.5));
                                 p.goodTarget *= p.goodTarget;
                                 //this.log(p.goodTarget);
                             }
@@ -2673,7 +2725,7 @@
                         if (p.otherInfluence > 0) {
                             // don't threaten friends, but do protect against everyone:
                             for (i in p.influence) {
-                                if (i != p.owner && this.enmity[i] < 1) {
+                                if (i != p.effectiveOwner && this.enmity[i] < 1) {
                                     p.want -= p.influence[i] * (1 - Math.max(0, this.enmity[i]));
                                 }
                             }
@@ -2860,9 +2912,9 @@
                                                     break;
                                                 }
                                                 if (hasTakenAtLeastOnce && rangeStillDefensible > 0) {
-                                                    var neededRatio = 2.2 - rangeStillDefensible * .2;
+                                                    var neededRatio = 1 + rangeStillDefensible * .2;
 
-                                                    neededRatio += 1 / (1 + this.attackPref[target.owner]);
+                                                    neededRatio += 1 / (1 + this.attackPref[target.effectiveOwner]);
 
                                                     costToTake = target.planetMaxByTime[rangeStillDefensible - 1];
                                                     this.log('costToTake ' + costToTake + '   sending: ' + attackByTime[rangeStillDefensible], 2);
