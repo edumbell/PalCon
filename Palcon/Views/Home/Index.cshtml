@@ -279,7 +279,7 @@
         var const_surrender = 's';
         var const_won = 'w';
         var const_bomb = 'b';
-        var maxcooldown = 60;
+        var maxcooldown = 80;
         var maxBombTime = 180;
         var localPlayerIds = [];
         keyconst.ctrl = [17, 16, 224]; // 91 behaves odd in win/chrome
@@ -322,6 +322,16 @@
             if (hate < 6)
                 return '{0} prepare to be squashed!';
             return '{0}, &*#$%^!';
+        }
+
+        function getLikeMsg(hate) {
+            if (hate > -1.5)
+                return '{0}, you are OK';
+            if (hate > -3)
+                return '{0} there may be room for two in this galaxy';
+            if (hate > -4.5)
+                return '{0}, I like your style';
+            return '{0} is the opposite of poop!';
         }
         function getHelpMsg(hate) {
             if (hate < 2.5)
@@ -718,7 +728,7 @@
         settings.costs = 50;
         settings.attack = .8;
         settings.minPlayers = 4;
-        settings.ppp = 30;
+        settings.ppp = 20;
 
         var planetradiuspercent = 1.9;
         var planetRadiusPixels = 0;
@@ -851,9 +861,9 @@
 
         var highlightOn = true;
         function toggleHighlightBlink() {
-            targetAlpha = .66;
+            targetAlpha = .75;
             if (highlightOn)
-                targetAlpha = .4;
+                targetAlpha = .3;
             var p;
             for (var idx in highlightedPlanets) {
                 p = highlightedPlanets[idx];
@@ -984,7 +994,7 @@
             console.log('exploding-----------');
             var fleet;
             var planet;
-            var maxDist = 20 + Math.sqrt(source.pop) * 10;
+            var maxDist = 80 + Math.sqrt(source.pop) * 6;
             var maxDistSquared = maxDist * maxDist;
             var maxPercent = Math.sqrt(source.pop) * 5;
             if (maxPercent > 100)
@@ -996,28 +1006,6 @@
             var percent;
             var dist;
             
-            for (p in planets) {
-                planet = planets[p];
-                if (planet != source) {
-                    distSquared = Math.pow(source.x - planet.x, 2) + Math.pow(source.y - planet.y, 2);
-                    if (distSquared < maxDistSquared) {
-                        dist = Math.sqrt(distSquared) - maxDist / 2 - planet.radius;
-                        percent = maxPercent * (maxDist / 2 - dist) / (maxDist / 2);
-                        if (percent > 100)
-                            percent = 100;
-
-                        planet.pop = planet.pop * (1 - percent * .01);
-                        if (percent == 100) {
-                            planet.owner = 0;
-                            planet.pop = .01;
-                            onPlanetChangeOwner(planet);
-                        }
-                        showExplosion(planet.x, planet.y, percent / 5 + 8, "#fff", 8, false);
-                    }
-                }
-            }
-            var maxDist = maxDist + 100;
-            var maxDistSquared = maxDist * maxDist;
             for (var f in fleets) {
                 fleet = fleets[f];
                 distSquared = Math.pow(source.x - fleet.shape.x, 2) + Math.pow(source.y - fleet.shape.y, 2);
@@ -1039,6 +1027,32 @@
                     showExplosion(fleet.shape.x, fleet.shape.y, percent / 10 + 4, fleet.owner, 9, false);
                 }
             }
+
+            //var maxDist = maxDist - 100;
+            //var maxDistSquared = maxDist * maxDist;
+
+            
+            for (p in planets) {
+                planet = planets[p];
+                if (planet != source) {
+                    distSquared = Math.pow(source.x - planet.x, 2) + Math.pow(source.y - planet.y, 2);
+                    if (distSquared < maxDistSquared) {
+                        dist = Math.sqrt(distSquared) - maxDist / 2 - planet.radius;
+                        percent = maxPercent * (maxDist / 2 - dist) / (maxDist / 2);
+                        if (percent > 100)
+                            percent = 100;
+
+                        planet.pop = planet.pop * (1 - percent * .01);
+                        if (percent == 100) {
+                            planet.owner = 0;
+                            planet.pop = .01;
+                            onPlanetChangeOwner(planet);
+                        }
+                        showExplosion(planet.x, planet.y, percent / 5 + 8, "#fff", 8, false);
+                    }
+                }
+            }
+            
             onPlanetChangeOwner(source);
             
         }
@@ -1156,6 +1170,7 @@
             return true;
         }
 
+        var sendPercentAlpha = .6;
         function startSendPercentBar(destPlanet) {
             if (!highlightedPlanets.length)
                 return;
@@ -1170,7 +1185,7 @@
                 highlightedPlanet = highlightedPlanets[idx];
                 sendPercentBar.graphics.setStrokeStyle(7 * globalscale, 'square', 'miter', 0, true);
                 //sendPercentBar.graphics.setStrokeDash([1, 10*globalscale], 0);
-                sendPercentBar.alpha = .6;
+                sendPercentBar.alpha = sendPercentAlpha;
                 var col = ownercolours[ownerIndex];
                 if (isPressed(keyconst.z)) {
                     col = "#fff";
@@ -1180,7 +1195,7 @@
                 drawSurfacePath(highlightedPlanet, destPlanet, sendPercentBar);
 
                 sendPercentBar.scaleX = sendPercentBar.scaleY = 0;
-
+                sendPercentBar.fromPlanet = highlightedPlanet;
                 layers.planets.addChild(sendPercentBar);
                 sendPercentBars.push(sendPercentBar);
             }
@@ -1247,6 +1262,23 @@
             for (var idx in sendPercentBars) {
                 sendPercentBar = sendPercentBars[idx];
                 sendPercentBar.scaleX = sendPercentBar.scaleY = sendPercent / 100;
+                if (sendPercentBar.fromPlanet.cooldown > 0)
+                {
+                    sendPercentBar.hiddenx = true;
+                    sendPercentBar.tween = createjs.Tween.get(sendPercentBar);
+                    sendPercentBar.tween.to({ alpha: 0.01 }, msPerTurn * 2 , createjs.Ease.quintOut);
+                    if (sendPercentBars.length == 1)
+                    {
+                        cancelSend();
+                    }
+                }
+                else if (sendPercentBar.hiddenx)
+                {
+                    sendPercentBar.hiddenx = false;
+                    sendPercentBar.tween.to({ alpha: sendPercentAlpha}, msPerTurn * 1 , createjs.Ease.quintOut);
+                    console.log('showing');
+                }
+
             }
             if (sendPercent > 90) {
 
@@ -1418,7 +1450,7 @@
                         for (var a in aiPlayersHostedLocally) {
                             aiPlayersHostedLocally[a].processFleetAttack(f);
                         }
-                        var cooldown = Math.sqrt(c.pop + 9) * maxcooldown / 40;
+                        var cooldown = Math.sqrt(c.pop + 15) * maxcooldown / 30;
                         if (cooldown > maxcooldown)
                             cooldown = maxcooldown;
                         fromPlanet.cooldown = cooldown;
@@ -1886,7 +1918,7 @@
             }
             var growth = 4;
             var extraCost = 20;
-            var numNeutrals = 10 + (numPlayers + 1) * (settings.ppp / 6) + 1;
+            var numNeutrals = 12 + (numPlayers + 1) * (settings.ppp / 10);
             if (numNeutrals > 100)
                 numNeutrals = 100;
             var got = Array.apply(null, Array(numPlayers + 1)).map(Number.prototype.valueOf, 0);
@@ -2033,8 +2065,6 @@
                 p.fillup = planetFillup(p);
                 p.fillupContainer.addChild(p.fillup);
             }
-
-
         }
 
         function moveFleet(f, idx) {
@@ -2053,9 +2083,7 @@
                         land(f);
                         f.ticksToNextLanding = ticksPerTurn;
                     }
-
                     //fleets[idx] = null;
-
 
                 }
                 else {
@@ -2096,7 +2124,7 @@
             txt.regX = txt.getBounds().width / 2;
             txt.regY = txt.getBounds().height / 2 + 3;
             txt.shadow = new createjs.Shadow("#000000", 0, 0, 3);
-            stage.addChild(txt);
+            layers.planets.addChild(txt);
             var tween = createjs.Tween.get(txt);
             tween.to({ scaleX: size * globalscale, scaleY: size * globalscale, alpha: 0 }, msPerTurn * 2 * timeScale, createjs.Ease.quintOut);
 
@@ -2286,7 +2314,7 @@
                     if (rotate - f.shape.rotation < -360)
                         rotate += 360;
                     //var moreRotate = rotate + (rotate - f.shape.rotation) / 2;
-                    tween.to({ rotation: rotate }, msPerTurn * 2, createjs.Ease.cubicInOut)
+                    tween.to({ rotation: rotate }, msPerTurn * 2, createjs.Ease.cubicInOut);
 
 
                     //setTimeout(function () {
@@ -2473,6 +2501,7 @@
             this.myPlanets = [];
             this.mapWideDanger = 0;
             this.announceHateThreshhold = 2;
+            this.announceLikeThreshhold = -1;
             this.loversPlayer = -1;
             function PlanetData(planet) {
                 this.planet = planet;
@@ -2527,7 +2556,7 @@
                 //this.persistentPlanetData = Array.apply(null, Array(planets.length));
                 //for (var idx in this.persistentPlanetData)
                 //                    this.persistentPlanetData[idx] = { lastSent: -10 };
-                this.enmity = Array.apply(null, Array(numPlayers + 1)).map(Number.prototype.valueOf, .5);
+                this.enmity = Array.apply(null, Array(numPlayers + 1)).map(Number.prototype.valueOf, Math.random()*2 -1);
 
                 this.attackPref = Array.apply(null, Array(numPlayers + 1)).map(Number.prototype.valueOf, 1);
                 this.enmitySendRatio = Array.apply(null, Array(numPlayers + 1)).map(Number.prototype.valueOf, 1);
@@ -2545,28 +2574,35 @@
                 var p = this.planetData[f.destination.index];
                 var effectiveOwner = p.effectiveOwner;
                 this.log('effective owner: ' + effectiveOwner);
-
+                conquerFactor = 1;
+                if (effectiveOwner == f.owner)
+                {
+                    effectiveOwner = p.owner;
+                    conquerFactor = .5;
+                }
                 if (effectiveOwner > 0 && effectiveOwner != f.owner && f.owner != p.owner) {
                     var effectivePop = p.actualByOwner[effectiveOwner];
                     var attackingPop = p.actualByOwner[f.owner];
-                    var maxToTake = Math.max(0, effectivePop - attackingPop * attackRatio);
-                    var taking = Math.min(f.pop * attackRatio, maxToTake);
+                    var neededToTake = Math.max(0, effectivePop * 1.5 + 10 - attackingPop * attackRatio);
+                    var taking = Math.min(f.pop * attackRatio, neededToTake);
                     if (taking > 0) {
                         var worth = Math.max(effectivePop, p.desirability * 5) + p.desirability * 5;
                         this.log('taking : ' + taking);
-                        var importance = (taking / effectivePop * worth) / (this.might[f.owner] / 10 + this.might[effectiveOwner]);
+                        var importanceToAttacker = (taking / effectivePop * worth) / (10 + this.might[f.owner] / 3 );
+                        var importanceToDefender = (taking / effectivePop * worth) / (50 + this.might[effectiveOwner] / 3);
+                        var importance = (importanceToAttacker + importanceToDefender) * conquerFactor;
                         this.log('imp: ' + importance);
                         if (effectiveOwner == this.ownerId) {
                             this.enmity[f.owner] += importance;
                             this.enmity[f.owner] = Math.max(this.enmity[f.owner], importance * 6);
                         }
-                        else if (effectiveOwner == this.topEnemy) {
+                        else if (effectiveOwner == this.topEnemy || effectiveOwner == this.hatedEnemy) {
                             this.enmity[f.owner] -= importance / 2;
                             this.enmity[effectiveOwner] -= importance / 10;
                         }
                         else {
-                            this.enmity[f.owner] -= importance / 5;
-                            this.enmity[effectiveOwner] -= importance / 8;
+                            this.enmity[f.owner] -= importance / 4;
+                            this.enmity[effectiveOwner] -= importance / 6;
                         }
                     }
                 }
@@ -2636,7 +2672,7 @@
                 this.threatInfluence = Array.apply(null, Array(numPlayers + 1)).map(Number.prototype.valueOf, 0);
                 var idx;
                 for (idx in this.enmity) {
-                    this.enmity[idx] = this.enmity[idx] * .98;
+                    this.enmity[idx] = this.enmity[idx] * .98 - .01;
                 }
                 this.enmity[0] = 1;
                 var p;
@@ -2878,10 +2914,22 @@
                     p.effectiveOwner = getMaxIndex(p.actualByOwner);
                 }
                 this.topEnemy = -1;
+                this.hatedEnemy = -1;
                 var topEnemyMight = -1;
-
+                var maxEnmity = -1;
                 if (this.might[this.ownerId] == 0)
                     this.isDead = true;
+
+                
+                for (i in this.enmity) {
+                    if (i > 0 && i != this.ownerId) {
+
+                        if (this.enmity[i] > maxEnmity) {
+                            this.hatedEnemy = i;
+                            maxEnmity = this.enmity[i];
+                        }
+                    }
+                }
 
                 for (i in this.might) {
                     if (i > 0 && i != this.ownerId) {
@@ -2908,27 +2956,40 @@
                 }
 
                 if (this.announceHateThreshhold > 1) { this.announceHateThreshhold *= .998; }
+                if (this.announceLikeThreshhold < 0) { this.announceLikeThreshhold *= .9995; }
                 if (!this.isDead) {
                     if (this.loversPlayer > 0) {
                         this.enmity[this.loversPlayer] = -10;
                         this.attackPref[this.loversPlayer] = -10;
                     }
                     for (i in this.attackPref) {
-                        if (i > 0) {
+                        if (i > 0 && i != this.ownerId) {
+                            var msg = '';
                             if (this.enmity[i] > 1 && this.enmity[i] > this.announceHateThreshhold) {
                                 this.announceHateThreshhold = this.announceHateThreshhold * 2 + 1;
-                                var thisAi = this;
-                                var toAi = i;
-                                var msg = '';
-                                if (this.might[this.ownerId] * 3 < this.might[i])
+                                
+                                if (this.might[this.ownerId] * 2 < this.might[i])
                                     msg = getHelpMsg(this.enmity[i]);
                                 else if (this.topEnemy == i && this.might[this.ownerId] < this.might[i])
                                     msg = 'Everyone attack {0}!';
                                 else
                                     msg = getThreatMsg(this.enmity[i]);
+                            }
+
+                            if (this.enmity[i] < this.announceLikeThreshhold)
+                            {
+                                this.announceLikeThreshhold = this.announceLikeThreshhold * 1.5 - 1;
+                                msg = getLikeMsg(this.enmity[i]);
+                            }
+                            if (msg > '')
+                            {
+                                var sendMsg = msg;
+                                var thisAi = this;
+                                var toAi = i;
                                 setTimeout(function () {
-                                    sendFormattedChat(thisAi.ownerId, toAi, msg);
+                                    sendFormattedChat(thisAi.ownerId, toAi, sendMsg );
                                 }, 100);
+                                break;
                             }
                         }
                     }
