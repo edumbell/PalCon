@@ -94,7 +94,7 @@
 
         input, select {
             border-radius: 5px;
-            width: 40px;
+            width: 60px;
             padding: 2px 7px;
         }
 
@@ -494,6 +494,7 @@
                 neutralPlanetCost = settings.costs;
                 attackRatio = settings.attack;
                 minPlayers = settings.minPlayers;
+                secondPlanet = settings.secondPlanet;
                 showSettings();
                 test = settings;
             }
@@ -612,6 +613,7 @@
             settings.costs = $("#costs").val();
             settings.attack = $("#attack").val();
             settings.minPlayers = $("#minplayers").val();
+            settings.secondPlanet = $("#secondplanet").val();
             myHub.server.sendSettings(gameId, JSON.stringify(settings));
         }
 
@@ -623,6 +625,7 @@
             $("#costs").val(settings.costs);
             $("#attack").val(settings.attack);
             $("#minplayers").val(settings.minPlayers);
+            $("#secondplanet").val(settings.secondPlanet);
         }
 
         function sendQueue(json) {
@@ -728,6 +731,7 @@
         settings.costs = 50;
         settings.attack = .8;
         settings.minPlayers = 4;
+        settings.secondPlanet = 1;
         settings.ppp = 20;
 
         var planetradiuspercent = 1.9;
@@ -1878,7 +1882,9 @@
             planetArray = [];
             var newPlanet;
             var minDistBetweenPlayers = 100 / (numPlayers + 1);
+            var minDistBetweenPlayerSmall = 50 / (numPlayers + 1);
             var bigpop = 100;
+            var smallpop = 50;
             for (i = 1; i <= numPlayers; i++) {
                 var growth = 4;
                 var canadd = false;
@@ -1916,6 +1922,46 @@
                 planetArray.push(newPlanet);
                 //bigpop = 100;
             }
+
+            for (i = 1; i <= numPlayers; i++) {
+                var growth = 1;
+                var canadd = false;
+                var tries = 0;
+
+                while (!canadd) {
+                    var radius = Math.sqrt(growth) * planetradiuspercent;
+                    newPlanet =
+                    {
+                        owner: i,
+                        x: Math.random() * (100 - radius * 2) + radius,
+                        y: Math.random() * (100 / xbound * ybound - radius * 2) + radius,
+                        pop: smallpop,
+                        growth: growth,
+                        radius: radius
+                    };
+                    canadd = !overlap(newPlanet, minDistBetweenPlayerSmall);
+                    if (!canadd) {
+
+                    }
+                    tries++;
+                    if (tries > 10) {
+                        minDistBetweenPlayersSmall = minDistBetweenPlayersSmall * .99;
+                    }
+                    if (tries > 100) {
+                        if (isRetry) {
+                            alert('can\'t find a place to add new starting planets.');
+                            return;
+                        }
+                        else {
+                            return generateGameBoard(true);
+                        }
+                    }
+                }
+                planetArray.push(newPlanet);
+                //bigpop = 100;
+            }
+
+
             var growth = 4;
             var extraCost = 20;
             var numNeutrals = 12 + (numPlayers + 1) * (settings.ppp / 10);
@@ -2588,21 +2634,21 @@
                     if (taking > 0) {
                         var worth = Math.max(effectivePop, p.desirability * 5) + p.desirability * 5;
                         this.log('taking : ' + taking);
-                        var importanceToAttacker = (taking / effectivePop * worth) / (10 + this.might[f.owner] / 3 );
+                        var importanceToAttacker = (taking / effectivePop * worth) / (50 + this.might[f.owner] / 3 );
                         var importanceToDefender = (taking / effectivePop * worth) / (50 + this.might[effectiveOwner] / 3);
-                        var importance = (importanceToAttacker + importanceToDefender) * conquerFactor;
-                        this.log('imp: ' + importance);
+                        //var importance = (importanceToAttacker + importanceToDefender) * conquerFactor;
+                        //this.log('imp: ' + importance);
                         if (effectiveOwner == this.ownerId) {
-                            this.enmity[f.owner] += importance;
-                            this.enmity[f.owner] = Math.max(this.enmity[f.owner], importance * 6);
+                            this.enmity[f.owner] += importanceToAttacker / 4 + importanceToDefender;
+                            this.enmity[f.owner] = Math.max(this.enmity[f.owner], importanceToAttacker / 2 + importanceToDefender);
                         }
                         else if (effectiveOwner == this.topEnemy || effectiveOwner == this.hatedEnemy) {
-                            this.enmity[f.owner] -= importance / 2;
-                            this.enmity[effectiveOwner] -= importance / 10;
+                            this.enmity[f.owner] -= importanceToAttacker / 2;
+                            this.enmity[effectiveOwner] -= importanceToDefender / 10;
                         }
                         else {
-                            this.enmity[f.owner] -= importance / 4;
-                            this.enmity[effectiveOwner] -= importance / 6;
+                            this.enmity[f.owner] -= importanceToAttacker / 4;
+                            this.enmity[effectiveOwner] -= importanceToDefender / 6;
                         }
                     }
                 }
@@ -3644,6 +3690,15 @@
                         <option value="6">6</option>
                     </select>
                 </div>
+
+                <div>
+                    <label>Second starting planet:</label>
+                    <select id="secondplanet">
+                        <option value="0">No</option>
+                        <option value="1" selected>Yes</option>
+                    </select>
+                </div>
+
                 <div class="more_container">
                     <a href="#" class="more_button">show experimental settings...</a>
                     <div class="more">
