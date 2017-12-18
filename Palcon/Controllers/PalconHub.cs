@@ -210,8 +210,8 @@ namespace Palcon.Controllers
             {
                 var schedule = System.Threading.Tasks.Task.Run(async () =>
                 {
-                    await System.Threading.Tasks.Task.Delay(1500);
-                    if (game.TimeLastTurnEnd.AddMilliseconds(1500) < DateTime.Now)
+                    await System.Threading.Tasks.Task.Delay(10500);
+                    if (game.TimeLastTurnEnd.AddMilliseconds(10500) < DateTime.Now)
                     {
                         EndTurn(game);
                     }
