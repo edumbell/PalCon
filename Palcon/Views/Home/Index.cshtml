@@ -358,7 +358,7 @@
         }
 
         function processCheatCode(pid, msg) {
-            if (msg == 'loveme') {
+            if (msg.indexOf('loveme') > -1) {
                 var ai;
                 for (var i in aiPlayersHostedLocally) {
                     ai = aiPlayersHostedLocally[i];
@@ -3231,10 +3231,10 @@
                             // target? -> rally points
                             // thumbsuck just to see if target worth investigating
                             var numplanets = this.myPlanets.length;
-                            var likelymight = this.might[this.ownerId] / (numplanets + 4);
-                            var likelydefmight = (this.might[p.owner] + this.might[p.effectiveOwner]) / 20;
-                            goodTarget1 = (p.aiInfluence + likelymight / 5) / (p.planetInfluence + p.otherInfluence - p.aiInfluence + 5 / p.desirability + likelydefmight / 5);
-                            goodTarget2 = (Math.max(likelymight / 2 + p.aiMaxByTime[3] / 2, p.aiMaxByTime[3])) / (p.oppositionByTime[3] + 5 / p.desirability + likelydefmight / 5);
+                            //var likelymight = this.might[this.ownerId] / (numplanets + 4);
+                            //var likelydefmight = (this.might[p.owner] + this.might[p.effectiveOwner]) / 20;
+                            goodTarget1 = (p.aiInfluence ) / (p.planetInfluence + p.otherInfluence - p.aiInfluence + 5 / p.desirability );
+                            goodTarget2 = (p.aiMaxByTime[2]) / (p.oppositionByTime[2] + 5 / p.desirability );
                             goodTarget3 = (p.aiMaxByTime[1]) / (p.oppositionByTime[1] + .0001);
                             p.goodTarget = (goodTarget1 + goodTarget2 + goodTarget3) / 3
                             //+ Math.max(goodTarget1, goodTarget2, goodTarget3) / 2;
@@ -3478,7 +3478,7 @@
                                                         hasTakenAtLeastOnce = true;
                                                     }
                                                     this.log('safety send amt:' + sendAmt, 2);
-                                                    sendAmt = Math.min(sendAmt, ((target.planetMaxByTime[3] + target.oppositionByTime[3]) * .55 - attackByTime[rangeStillDefensible]) / attRatio);
+                                                    sendAmt = Math.min(sendAmt, ((target.planetMaxByTime[2] + target.oppositionByTime[2]) * .55 - attackByTime[rangeStillDefensible]) / attRatio);
                                                     sendEffect = sendAmt * attRatio;
                                                     //this.log('actual send amt:' + sendAmt + ' | );
                                                     if (rangeStillDefensible < 3) {
@@ -3486,11 +3486,11 @@
                                                         attackByTime[rangeStillDefensible] = attackByTime[rangeStillDefensible - 1];
                                                     }
                                                     else {
-                                                        if (attackByTime[3] + sendEffect > (target.planetMaxByTime[rangeStillDefensible] + target.oppositionByTime[rangeStillDefensible]) * .5) {
+                                                        if (attackByTime[2] + sendEffect > (target.planetMaxByTime[rangeStillDefensible] + target.oppositionByTime[rangeStillDefensible]) * .5) {
                                                             sentEnough = true;
                                                         }
                                                         else {
-                                                            this.log('havent sent enought to secure? ' + (attackByTime[3] + sendEffect) + ' vs ' + ((target.planetMaxByTime[rangeStillDefensible] + target.oppositionByTime[rangeStillDefensible]) * .5));
+                                                            this.log('havent sent enought to secure? ' + (attackByTime[2] + sendEffect) + ' vs ' + ((target.planetMaxByTime[rangeStillDefensible] + target.oppositionByTime[rangeStillDefensible]) * .5));
                                                         }
                                                         break;
                                                     }
