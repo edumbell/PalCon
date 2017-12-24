@@ -16,7 +16,7 @@ namespace Palcon.Models
         //{
         //    {"#bbb", "white" },{ "#55e079", "Green" },{   "#00eee0", "Azure" },{ "#ffd400", "Yellow" },{ "#aaaaff", "Blue" },{ "#ff7777", "Reddish" },{ "#ff00ff","purple"}
         //};
-        public static string[] Colours =  {"#bbb", "#55e079",   "#00eee0", "#ffd400", "#aaaaff", "#ff7777", "#ff00ff"};
+        public static string[] Colours =  {"#bbb", "#45e855",   "#00eec0", "#ffd400", "#95aaff", "#ff7777", "#ff00ff"};
         public static string[] ColourNames = { "white","Green","Azure","Yellow","Blue","Reddish","Purple" };
         public static int[] ColourIds = { 0,1,2,3,4,5,6};
 
