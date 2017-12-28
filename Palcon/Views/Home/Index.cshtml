@@ -282,7 +282,8 @@
         var const_won = 'w';
         var const_bomb = 'b';
         var maxcooldown = 80;
-        var maxBombTime = 180;
+        var maxBombTime = 3 * 2 * 60;
+        var startDelay = 2500;
         var localPlayerIds = [];
         keyconst.ctrl = [17, 16, 224]; // 91 behaves odd in win/chrome
         keyconst.z = [90];
@@ -765,7 +766,7 @@
 
         // UI
         var highlights = [];
-        var currentBombPlanet;
+        var currentBombPlanets = [];
 
         var highlightedPlanets = [];
 
@@ -809,7 +810,9 @@
         }
 
         function doBombTick() {
-            if (currentBombPlanet) {
+            var toRemove = [];
+            for (var idx in currentBombPlanets) {
+                var currentBombPlanet = currentBombPlanets[idx];
                 currentBombPlanet.bombTicks += currentBombPlanet.bombTickDirection;
                 if (currentBombPlanet.bombTicks > currentBombPlanet.targetBombTicks) {
                     currentBombPlanet.bombTickDirection = -1;
@@ -826,23 +829,32 @@
                         }
                        );
                     onHighlightChange();
+                    toRemove.push(currentBombPlanet);
                 }
+            }
+            for (var idx in toRemove) {
+                currentBombPlanets.splice(jQuery.inArray(toRemove[idx], currentBombPlanets), 1);
             }
         }
-        function onHighlightChange() {
-            if (highlightedPlanets.length == 1 && !currentBombPlanet) {
-                drawBomb(highlightedPlanets[0]);
-                //currentBombPlanet = highlightedPlanets[0];
-            }
-            else {
-                for (var idx in highlightedPlanets) {
 
-                    var p = highlightedPlanets[idx];
-                    if (p != currentBombPlanet) {
-                        clearBombUi(p);
-                    }
+        function onHighlightChange() {
+            //if (highlightedPlanets.length == 1 && !highlightedPlanets[0].bombTicks) {
+            //    drawBombIcon(highlightedPlanets[0]);
+            //    //currentBombPlanet = highlightedPlanets[0];
+            //}
+            //else {
+            for (var idx in highlightedPlanets) {
+
+                var p = highlightedPlanets[idx];
+                if (!p.bombTicks > 0) {
+                    drawBombIcon(p);
+                    //currentBombPlanet = highlightedPlanets[0];
                 }
+                //if (p != currentBombPlanet) {
+                //    clearBombUi(p);
+                //}
             }
+            //}
         }
 
         function clearHighlights() {
@@ -859,22 +871,36 @@
             onHighlightChange();
         }
 
+
         function clearBombUi(p) {
-            if (p.bombIcon || p.bombTicks) {
+            if (p.bombIcon) {
                 stage.removeChild(p.bombIcon);
                 p.bombIcon = null;
-
-                if (p.bombTickDirection > 0) {
-                    stage.removeChild(p.bombTickShape);
-                    stage.removeChild(p.bombTickTargetShape);
-                    p.bombTickShape = null;
-                    p.bombTickTargetShape = null;
-                    p.bombTicks = 0;
-                    p.bombTickDirection = null;
-                    currentBombPlanet = null;
-                }
+            }
+            if (p.bombTickDirection > 0) {
+                clearBomb(p);
+                var idx = jQuery.inArray(p, currentBombPlanets);
+                if (idx > -1)
+                    currentBombPlanets.splice(idx, 1);
             }
 
+        }
+
+
+        function clearBomb(p) {
+
+            p.bombTicks = 0;
+            p.bombTickDirection = null;
+            p.targetBombTicks = null;
+            
+
+            if (p.bombTickShape) {
+                stage.removeChild(p.bombTickShape);
+                stage.removeChild(p.bombTickTargetShape);
+                p.bombTickShape = null;
+                p.bombTickTargetShape = null;
+                //currentBombPlanet = null;
+            }
         }
 
 
@@ -897,7 +923,8 @@
             planet.highlight = highlightShape(planet);
             layers.planets.addChild(planet.highlight);
         }
-        function drawBomb(planet) {
+        function drawBombIcon(planet) {
+
             if (planet.bombIcon)
                 return;
             planet.bombIcon = bombShape(planet);
@@ -907,7 +934,7 @@
             });
         }
         function drawBombTicking(planet) {
-            if (planet.bombIcon && planet.bombTickDirection < 0) {
+            if (planet.bombTickDirection < 0) {
                 stage.removeChild(planet.bombIcon);
                 planet.bombIcon = null;
             }
@@ -927,17 +954,16 @@
         }
 
         function onPlanetChangeOwner(p) {
-            if (p == currentBombPlanet) {
-                clearBombUi(p);
-            }
 
-            if (p.bombTicks && p.bombTickDirection > 0) {
-                p.bombTicks = 0;
-                stage.removeChild(p.bombTickShape);
-                p.bombTickShape = null;
-                stage.removeChild(p.bombTickTargetShape);
-                p.bombTickTargetShape = null;
-            }
+            clearBombUi(p);
+
+            //if (p.bombTicks && p.bombTickDirection > 0) {
+            //    p.bombTicks = 0;
+            //    stage.removeChild(p.bombTickShape);
+            //    p.bombTickShape = null;
+            //    stage.removeChild(p.bombTickTargetShape);
+            //    p.bombTickTargetShape = null;
+            //}
             p.cooldown = 0;
             redrawPlanet(p);
             ensureHighlights();
@@ -963,11 +989,7 @@
                 source.bombWarningTicks = 4;
                 bombWarningPlanets.push(source);
             }
-            if (source == currentBombPlanet) {
-                source.bombTicks = null;
-                clearBombUi(currentBombPlanet);
-                currentBombPlanet = null;
-            }
+            clearBomb(source);
         }
         var doWarningTickThisTurn = true;
         function processBombWarningTicks() {
@@ -991,7 +1013,7 @@
         }
 
         function bombExplode(source, owner) {
-            clearBombUi(source);
+            clearBomb(source);
             playSound(sound_conquer, source.x, .666, .1);
             bombWarningPlanets.splice(jQuery.inArray(source, bombWarningPlanets), 1);
             source.bombWarningOwner = null;
@@ -1065,7 +1087,7 @@
             var toUnhighlight = [];
             for (var idx in highlightedPlanets) {
                 var p = highlightedPlanets[idx];
-                if (p.owner != ownerIndex || p == currentBombPlanet) {
+                if (p.owner != ownerIndex || p.bombWarningTicks) {
                     toUnhighlight.push(p);
                 }
             }
@@ -1076,30 +1098,31 @@
             onHighlightChange();
         }
         function toggleBomb(planet) {
-            if (planet == currentBombPlanet) {
-                planet.targetBombTicks += maxBombTime / 4.0;
+            if (planet.targetBombTicks) {
+                planet.targetBombTicks += maxBombTime / 6.0;
                 if (planet.targetBombTicks > maxBombTime)
-                    planet.targetBombTicks = maxBombTime / 2.0;
+                    planet.targetBombTicks = maxBombTime; // todo
+                drawBombTicking(planet);
             }
             else {
-                planet.bombTickDirection = maxBombTime / 20;
-                planet.targetBombTicks = maxBombTime / 2;
+                planet.bombTickDirection = maxBombTime / 120;
+                planet.targetBombTicks = maxBombTime / 3;
                 planet.bombTicks = .1;
-                currentBombPlanet = planet;
+                currentBombPlanets.push(planet);
                 drawBombTicking(planet);
-                unHighlightPlanet(planet);
+                //unHighlightPlanet(planet);
             }
         }
         function unHighlightPlanet(planet) {
             layers.planets.removeChild(planet.highlight);
             planet.highlight = null;
             highlightedPlanets.splice(jQuery.inArray(planet, highlightedPlanets), 1);
-            if (planet != currentBombPlanet)
+            if (!planet.bombTicks)
                 clearBombUi(planet);
         }
 
         function highlightPlanet(planet) {
-            if (planet != currentBombPlanet && !planet.bombWarningTicks) {
+            if (!planet.bombWarningTicks) {
                 drawHighlight(planet);
                 highlightedPlanets.push(planet);
             }
@@ -1611,8 +1634,8 @@
 
         function tickingBombShape(planet, fraction, isSetup) {
             var circle = newScaledShape();
-            var width = 4 * globalscale;
-            var stroke = 3;
+            var width = 3.5 * globalscale;
+            var stroke = 2.5;
 
             if (isSetup) {
                 circle.alpha = 1;
@@ -1626,7 +1649,7 @@
                 .setStrokeDash([stroke * globalscale, (5 - stroke) * globalscale], 0)
                 .beginStroke("#fff")
             //circle.graphics.beginStroke("#FFF")
-                .arc(0, 0, planet.radius * 1.1, 0, 0 - fraction * Math.PI * 2, true);
+                .arc(0, 0, planet.radius + 7*globalscale, 0, 0 - fraction * Math.PI * 2, true);
             //circle.graphics.setStrokeStyle(1.5 * globalscale);
             //circle.graphics.beginStroke("#fff").drawCircle(0, 0, planet.radius + width/2);
 
@@ -1664,13 +1687,14 @@
             var circle = newScaledShape();
             var clickable = newScaledShape();
             container.addChild(circle);
+            container.addChild(clickable);
             circle.x = planet.x + planet.radius + 6;
             circle.y = planet.y - planet.radius + 6;
             clickable.x = circle.x;
             clickable.y = circle.y;
             clickable.alpha = .01;
             clickable.graphics.beginFill(ownercolours[planet.owner])
-                .drawCircle(0, 0, 6);
+                .drawCircle(0, 0, 7);
             var width = 2 * globalscale;
             circle.graphics.setStrokeStyle(width)
                 .beginStroke('#ccc')
@@ -1877,6 +1901,19 @@
 
         }
 
+        function addMirrorPlanet(planet, newOwner)
+        {
+            var newPlanet =
+{
+    owner: newOwner,
+    x: 100 - planet.x,
+    y: (100 / xbound * ybound) - planet.y,
+    pop: planet.pop,
+    growth: planet.growth,
+    radius: planet.radius
+};
+            planetArray.push(newPlanet);
+        }
 
         function generateGameBoard(isRetry) {
             function overlap(obj, minDist, minDistSamePlayer) {
@@ -1914,6 +1951,22 @@
             var minDistBetweenSelf = 100 / (numPlayers / 4 + 1.25)
             var bigpop = 100;
             var smallpop = 50;
+            var extraCost = 20;
+            
+
+            if (numPlayers == 2) {
+                newPlanet =
+                       {
+                           owner: 0,
+                           x: 50,
+                           y: (100 / xbound * ybound) / 2,
+                           pop: 4 * neutralPlanetCost / 4 + Math.random() * 4 * neutralPlanetCost / 4 + extraCost,
+                           growth: 4,
+                           radius: Math.sqrt(4) * planetradiuspercent
+                       };
+                planetArray.push(newPlanet);
+            }
+
             for (i = 1; i <= numPlayers; i++) {
                 var growth = 4;
                 var canadd = false;
@@ -1949,6 +2002,11 @@
                     }
                 }
                 planetArray.push(newPlanet);
+                if (numPlayers == 2)
+                {
+                    addMirrorPlanet(newPlanet, i + 1);
+                    i++;
+                }
                 //bigpop = 100;
             }
 
@@ -1989,18 +2047,22 @@
                     }
                 }
                 planetArray.push(newPlanet);
+                if (numPlayers == 2) {
+                    addMirrorPlanet(newPlanet, i + 1);
+                    i++;
+                }
                 //bigpop = 100;
             }
 
 
             var growth = 4;
-            var extraCost = 20;
+            
             var numNeutrals = 12 + (numPlayers + 1) * (settings.ppp / 10);
             if (numNeutrals > 100)
                 numNeutrals = 100;
             var got = Array.apply(null, Array(numPlayers + 1)).map(Number.prototype.valueOf, 0);
             for (i = 0; i < numNeutrals; i++) {
-                if (i == 1) {
+                if (i == 1 || numPlayers == 2) {
                     growth = 1;
                     extraCost = 0;
                 }
@@ -2038,7 +2100,10 @@
                 //newPlanet.owner = next;
                 got[next] += newPlanet.pop + newPlanet.growth * 4;
                 planetArray.push(newPlanet);
-
+                if (numPlayers == 2) {
+                    addMirrorPlanet(newPlanet, 0);
+                    i++;
+                }
             }
 
             return planetArray;
@@ -2104,7 +2169,7 @@
         function prestartUi() {
             doTick();
             _paused = true;
-            
+
             startTicker();
             $("#controls").css('visibility', 'visible');
             var p;
@@ -2117,7 +2182,7 @@
             }
             var c = 3;
             for (var idx = 0; idx < 3; idx++) {
-                
+
                 setTimeout(function () {
 
                     console.log(c);
@@ -2131,19 +2196,19 @@
                     txt.alpha = .1;
                     txt.shadow = new createjs.Shadow("#000000", 0, 0, 3);
                     layers.planets.addChild(txt);
-                    var tween = createjs.Tween.get(txt, { useTicks: false});
+                    var tween = createjs.Tween.get(txt, { useTicks: false });
                     tween
                         .to({ scaleX: 200, scaleY: 200, alpha: .4 }, msPerTurn / 3, null)
                         .to({ scaleX: 60, scaleY: 60, alpha: .2 }, msPerTurn * 2, null)
                         .to({ scaleX: 0, scaleY: 0, alpha: .1 }, msPerTurn, null);
                     c--;
-                }, idx * 2500 + 2500);
+                }, idx * startDelay + startDelay);
             }
-            setTimeout(function () { _paused = false;  }, 3 * 2500 + 3000);
+            setTimeout(function () { _paused = false; }, 3 * startDelay + startDelay + 500);
         }
 
         function startTicker() {
-            
+
             $("body").css('background-color', '#333');
 
             createjs.Ticker.setFPS(ticksPerTurn / msPerTurn * 1000);
@@ -2622,7 +2687,7 @@
                 doTick();
                 if (sendInProgress)
                     updateSendProgress(); // do this regardless of game lag
-                
+
             }
         }
 
