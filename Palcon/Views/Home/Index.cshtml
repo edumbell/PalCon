@@ -2880,7 +2880,12 @@
                 this.threatInfluence = Array.apply(null, Array(numPlayers + 1)).map(Number.prototype.valueOf, 0);
                 var idx;
                 for (idx in this.enmity) {
-                    this.enmity[idx] = this.enmity[idx] * .98 - .01;
+                    if (numPlayers == 2) {
+                        this.enmity[idx] = Math.max(this.enmity[idx], 5);
+                    }
+                    else {
+                        this.enmity[idx] = this.enmity[idx] * .98 - .01;
+                    }
                 }
                 this.enmity[0] = 1;
                 var p;
@@ -3058,7 +3063,7 @@
 
                     // TODO:
                     p.planetActualByTime[0] = p.planet.pop;
-                    p.actualByOwner[p.owner] += p.planet.pop / attackRatio;
+                    p.actualByOwner[p.owner] += p.planet.pop; // / attackRatio;
                     p.planetMaxByTime[0] = p.planet.pop;
 
                     if (p.owner > 0) {
@@ -3232,7 +3237,7 @@
                 //console.log(distanceMatrix[fromPlanetData.planetId][toPlanetData.planetId]);
                 var distRatio = Math.max(0, (1.3 - dist / 500));
                 var sizeRatio = (toPlanetData.desirability + 2) / (fromPlanetData.desirability + 2) * .5;
-                return Math.min(1, distRatio * sizeRatio);
+                return Math.min(1, distRatio * sizeRatio)/2;
             }
             this.doTurnFinal = function () {
                 if (this.doThisTurn) {
@@ -3429,8 +3434,8 @@
                             }
 
 
-                            if (p.lastDidntAttack > turnId - 20) {
-                                p.goodTarget = 0;
+                            if (p.lastDidntAttack > turnId - 10) {
+                                p.goodTarget = -.1;
                             }
                             else if (willWin && p.goodTarget > .5)
                                 p.goodTarget += .5;
@@ -3585,7 +3590,10 @@
                                                 }
                                                 sendEffect = sendAmt * attRatio;
 
-                                                while (attackByTime[rangeStillDefensible] + sendEffect > target.planetMaxByTime[rangeStillDefensible] * 1.05) {
+                                                var needed = (target.planetActualByTime[rangeStillDefensible] + target.planetMaxByTime[rangeStillDefensible] / 2 + target.oppositionByTime[rangeStillDefensible] / 2) / 2;
+                                                needed = Math.max(target.planetActualByTime[rangeStillDefensible], needed);
+
+                                                while (attackByTime[rangeStillDefensible] + sendEffect > needed) {
                                                     // have we sent too much?
                                                     if (attackByTime[rangeStillDefensible] + sendEffect > target.planetMaxByTime[rangeStillDefensible] * 1.1)
                                                         newAttackRatio = 1 / attackRatio;
@@ -3597,18 +3605,22 @@
                                                         hasTakenAtLeastOnce = true;
                                                     }
                                                     this.log('safety send amt:' + sendAmt, 2);
-                                                    var needed = (target.planetActualByTime[rangeStillDefensible] + target.planetMaxByTime[rangeStillDefensible] + target.oppositionByTime[rangeStillDefensible]) / 2.5;
-                                                    needed = Math.max(target.planetActualByTime[rangeStillDefensible], needed);
-                                                    sendAmt = Math.min(sendAmt, (needed * 1.2 - attackByTime[rangeStillDefensible]) / attRatio);
-                                                    sendEffect = sendAmt * attRatio;
+                                                    
                                                     //this.log('actual send amt:' + sendAmt + ' | );
                                                     if (rangeStillDefensible < 3) {
                                                         rangeStillDefensible++;
                                                         attackByTime[rangeStillDefensible] = attackByTime[rangeStillDefensible - 1];
                                                     }
-                                                    else {
-                                                        needed = (target.planetActualByTime[2] + target.planetMaxByTime[2] + target.oppositionByTime[2]) / 2.5;
-                                                        needed = Math.max(target.planetActualByTime[3], needed);
+
+                                                    needed = (target.planetActualByTime[rangeStillDefensible] + target.planetMaxByTime[rangeStillDefensible] / 2 + target.oppositionByTime[rangeStillDefensible] / 2) / 2;
+                                                    needed = Math.max(target.planetActualByTime[rangeStillDefensible], needed);
+                                                    sendAmt = Math.min(sendAmt, (needed * 1.2 - attackByTime[rangeStillDefensible]) / attRatio);
+                                                    sendEffect = sendAmt * attRatio;
+
+                                                    if (rangeStillDefensible == 3) 
+                                                    {
+                                                        //needed = (target.planetActualByTime[2] + target.planetMaxByTime[2]/2 + target.oppositionByTime[2]/2) / 2;
+                                                        //needed = Math.max(target.planetActualByTime[3], needed);
                                                         if (attackByTime[2] + sendEffect > needed) {
                                                             sentEnough = true;
                                                         }
