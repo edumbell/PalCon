@@ -76,7 +76,7 @@
                 position: relative;
             }
 
-
+            
         .more {
             display: none;
         }
@@ -94,7 +94,7 @@
 
         input, select {
             border-radius: 5px;
-            width: 60px;
+            width: 80px;
             padding: 2px 7px;
         }
 
@@ -242,7 +242,7 @@
             }
 
         #chat_input {
-            width: auto;
+            width: 100%;
             display: none;
         }
 
@@ -276,7 +276,7 @@
         var test;
         var keys = [];
         var keyconst = {};
-        var _maxInfluenceDistance = 200;
+        var _maxInfluenceDistance = 250;
         var const_surrender = 's';
         var const_checksum = 'cs';
         var const_won = 'w';
@@ -423,12 +423,14 @@
                 $(".waitforsignalr").hide();
                 gameId = aGameId;
                 $("#btnStart").css('visibility', 'visible');
-                showSettings();
+                showSettings(settings);
+                loadSettingsFromCookie();
                 initChat();
                 $(".colours input").on("change", function () {
                     //console.log('picked');
-                    myHub.server.sendColour(gameId, $("input[name='colour']:checked").val());
+                    sendSelectedColour();
                 });
+                sendSelectedColour();
             }
 
             myHub.client.checkReadyToStart = function () {
@@ -501,14 +503,8 @@
             myHub.client.receiveSettings = function (jsonstr) {
                 console.log('received settings');
                 settings = JSON.parse(jsonstr);
-                fleetspeed = settings.speed / 10;
-                growthrate = settings.growth / 900;
-                neutralPlanetCost = settings.costs;
-                attackRatio = settings.attack;
-                minPlayers = settings.minPlayers;
-                secondPlanet = settings.secondPlanet;
-                showSettings();
-                test = settings;
+                receiveSettings(settings);
+                showSettings(settings);
             }
 
             $.connection.hub.start().done(function () {
@@ -616,6 +612,53 @@
             }
         }
 
+        function createCookie(name, value, seconds) {
+            value = encodeURIComponent(JSON.stringify(value));
+            var date = new Date();
+            date.setTime(date.getTime() + (seconds * 1000));
+            var expires = "; expires=" + date.toGMTString();
+            document.cookie = name + "=" + value + expires + "; path=/";
+        }
+
+        function readCookie(name) {
+            var nameEQ = name + "=";
+            var ca = document.cookie.split(';');
+            for (var i = 0; i < ca.length; i++) {
+                var c = ca[i];
+                while (c.charAt(0) == ' ')
+                    c = c.substring(1, c.length);
+                if (c.indexOf(nameEQ) == 0) {
+                    return JSON.parse(decodeURIComponent(
+                        c.substring(nameEQ.length, c.length)
+                    ));
+                }
+            }
+            return null;
+        }
+
+        function sendSelectedColour() {
+            var selectedInput = $("input[name='colour']:checked");
+            if (selectedInput.length) {
+                var colourVal = selectedInput.val();
+                myHub.server.sendColour(gameId, colourVal);
+                createCookie("colour", colourVal);
+            }
+        }
+
+        function resetSettings() {
+            settings.growth = 100;
+            settings.speed = 100;
+            settings.lethargy = 0;
+            settings.costs = 50;
+            settings.attack = .8;
+            settings.minPlayers = 4;
+            settings.secondPlanet = 1;
+            settings.ppp = 20;
+            showSettings(settings);
+            if (myHub)
+                sendSettings();
+        }
+
         function sendSettings() {
             var settings = {};
             settings.lethargy = $("#lethargy").val();
@@ -627,9 +670,37 @@
             settings.minPlayers = $("#minplayers").val();
             settings.secondPlanet = $("#secondplanet").val();
             myHub.server.sendSettings(gameId, JSON.stringify(settings));
+            saveSettingsCookie(settings);
         }
 
-        function showSettings() {
+        function loadSettingsFromCookie() {
+            var trySettings = readCookie("settings");
+            if (trySettings && trySettings.secondPlanet >= 0) {
+                settings = trySettings;
+                receiveSettings(settings);
+                showSettings(settings);
+            }
+            var tryColour = readCookie("colour");
+            if (tryColour) {
+                $("input[name='colour'][value='" + tryColour + "']").prop('checked', true);
+                sendSelectedColour();
+            }
+        }
+
+        function saveSettingsCookie(settings) {
+            createCookie("settings", settings);
+        }
+
+        function receiveSettings(settings) {
+            fleetspeed = settings.speed / 10;
+            growthrate = settings.growth / 900;
+            neutralPlanetCost = settings.costs;
+            attackRatio = settings.attack;
+            minPlayers = settings.minPlayers;
+            secondPlanet = settings.secondPlanet;
+        }
+
+        function showSettings(settings) {
             $("#lethargy").val(settings.lethargy);
             $("#fleetspeed").val(settings.speed);
             $("#growthrate").val(settings.growth);
@@ -646,6 +717,7 @@
 
         function startGame() {
             sendSettings(); // somebody could have joined since last settings change.
+
             myHub.server.tryStartGame(gameId)
             .done(function (result) {
                 numPlayers = result;
@@ -748,14 +820,8 @@
         var ticksPerTurn = 10;
         var msPerTurn = 500;
         var settings = {};
-        settings.growth = 100;
-        settings.speed = 100;
-        settings.lethargy = 0;
-        settings.costs = 50;
-        settings.attack = .8;
-        settings.minPlayers = 4;
-        settings.secondPlanet = 1;
-        settings.ppp = 20;
+        resetSettings();
+        
 
         var planetradiuspercent = 1.9;
         var planetRadiusPixels = 0;
@@ -892,7 +958,7 @@
             p.bombTicks = 0;
             p.bombTickDirection = null;
             p.targetBombTicks = null;
-            
+
 
             if (p.bombTickShape) {
                 stage.removeChild(p.bombTickShape);
@@ -1021,15 +1087,15 @@
             //console.log('exploding-----------');
             var fleet;
             var planet;
-            var maxDist = 80 + Math.sqrt(source.pop) * 6;
+            var maxDist = 120 + Math.sqrt(source.pop) * 15;
             var maxDistSquared = maxDist * maxDist;
-            var maxPercent = Math.sqrt(source.pop) * 5;
+            var maxPercent = Math.sqrt(source.pop) * 7.5 + 25;
             if (maxPercent > 100)
                 maxPercent = 100;
             source.pop = 0.01;
             source.owner = 0;
             setTimeout(
-                function () { showExplosion(source.x, source.y, maxDist / 2, owner, 6, true); }, msPerTurn / 2);
+                function () { showExplosion(source.x, source.y, maxDist *.4, owner, 6, true); }, msPerTurn / 2);
             var percent;
             var dist;
 
@@ -1041,7 +1107,7 @@
                 if (distSquared < maxDistSquared) {
                     dist = Math.sqrt(distSquared) - maxDist / 2;
                     //console.log(dist);
-                    percent = maxPercent * (maxDist / 2 - dist) / (maxDist / 2) + 50;
+                    percent = maxPercent * (maxDist / 2 - dist) / (maxDist / 2) * 2;
                     if (percent > 100)
                         percent = 100;
                     fleet.pop = fleet.pop * (1 - percent * .01);
@@ -1649,7 +1715,7 @@
                 .setStrokeDash([stroke * globalscale, (5 - stroke) * globalscale], 0)
                 .beginStroke("#fff")
             //circle.graphics.beginStroke("#FFF")
-                .arc(0, 0, planet.radius + 7*globalscale, 0, 0 - fraction * Math.PI * 2, true);
+                .arc(0, 0, planet.radius + 7 * globalscale, 0, 0 - fraction * Math.PI * 2, true);
             //circle.graphics.setStrokeStyle(1.5 * globalscale);
             //circle.graphics.beginStroke("#fff").drawCircle(0, 0, planet.radius + width/2);
 
@@ -1901,8 +1967,7 @@
 
         }
 
-        function addMirrorPlanet(planet, newOwner)
-        {
+        function addMirrorPlanet(planet, newOwner) {
             var newPlanet =
 {
     owner: newOwner,
@@ -1952,7 +2017,7 @@
             var bigpop = 100;
             var smallpop = 50;
             var extraCost = 20;
-            
+
 
             if (numPlayers == 2) {
                 newPlanet =
@@ -2002,51 +2067,6 @@
                     }
                 }
                 planetArray.push(newPlanet);
-                if (numPlayers == 2)
-                {
-                    addMirrorPlanet(newPlanet, i + 1);
-                    i++;
-                }
-                //bigpop = 100;
-            }
-
-            // SAMLL PLAYER PLANETS
-            for (i = 1; i <= numPlayers; i++) {
-                var growth = 1;
-                var canadd = false;
-                var tries = 0;
-
-                while (!canadd) {
-                    var radius = Math.sqrt(growth) * planetradiuspercent;
-                    newPlanet =
-                    {
-                        owner: i,
-                        x: Math.random() * (100 - radius * 2) + radius,
-                        y: Math.random() * (100 / xbound * ybound - radius * 2) + radius,
-                        pop: smallpop,
-                        growth: growth,
-                        radius: radius
-                    };
-                    canadd = !overlap(newPlanet, minDistBetweenPlayerSmall, minDistBetweenSelf);
-                    if (!canadd) {
-
-                    }
-                    tries++;
-                    if (tries > 10) {
-                        minDistBetweenPlayerSmall = minDistBetweenPlayerSmall * .99;
-                        minDistBetweenSelf = minDistBetweenSelf * .97;
-                    }
-                    if (tries > 100) {
-                        if (isRetry) {
-                            alert('can\'t find a place to add new starting planets.');
-                            return;
-                        }
-                        else {
-                            return generateGameBoard(true);
-                        }
-                    }
-                }
-                planetArray.push(newPlanet);
                 if (numPlayers == 2) {
                     addMirrorPlanet(newPlanet, i + 1);
                     i++;
@@ -2054,9 +2074,54 @@
                 //bigpop = 100;
             }
 
+            // SAMLL PLAYER PLANETS
+            if (secondplanet) {
+                for (i = 1; i <= numPlayers; i++) {
+                    var growth = 1;
+                    var canadd = false;
+                    var tries = 0;
+
+                    while (!canadd) {
+                        var radius = Math.sqrt(growth) * planetradiuspercent;
+                        newPlanet =
+                        {
+                            owner: i,
+                            x: Math.random() * (100 - radius * 2) + radius,
+                            y: Math.random() * (100 / xbound * ybound - radius * 2) + radius,
+                            pop: smallpop,
+                            growth: growth,
+                            radius: radius
+                        };
+                        canadd = !overlap(newPlanet, minDistBetweenPlayerSmall, minDistBetweenSelf);
+                        if (!canadd) {
+
+                        }
+                        tries++;
+                        if (tries > 10) {
+                            minDistBetweenPlayerSmall = minDistBetweenPlayerSmall * .99;
+                            minDistBetweenSelf = minDistBetweenSelf * .97;
+                        }
+                        if (tries > 100) {
+                            if (isRetry) {
+                                alert('can\'t find a place to add new starting planets.');
+                                return;
+                            }
+                            else {
+                                return generateGameBoard(true);
+                            }
+                        }
+                    }
+                    planetArray.push(newPlanet);
+                    if (numPlayers == 2) {
+                        addMirrorPlanet(newPlanet, i + 1);
+                        i++;
+                    }
+                    //bigpop = 100;
+                }
+            }
 
             var growth = 4;
-            
+
             var numNeutrals = 12 + (numPlayers + 1) * (settings.ppp / 10);
             if (numNeutrals > 100)
                 numNeutrals = 100;
@@ -2589,39 +2654,39 @@
 
             tickInTurn++;
 
-            if (tickInTurn == 2) {
+            if (tickInTurn == 1) {
                 for (a in aiPlayersHostedLocally) {
                     aiPlayersHostedLocally[a].doTurn1();
                 }
             }
-            if (tickInTurn == 3) {
+            if (tickInTurn == 2) {
                 for (a in aiPlayersHostedLocally) {
                     aiPlayersHostedLocally[a].doTurn2();
                 }
             }
-            if (tickInTurn == 4) {
+            if (tickInTurn == 2) {
                 for (a in aiPlayersHostedLocally) {
                     aiPlayersHostedLocally[a].doTurn3();
                 }
             }
-            if (tickInTurn == 5) {
+            if (tickInTurn == 2) {
                 for (a in aiPlayersHostedLocally) {
                     aiPlayersHostedLocally[a].doTurn4();
                 }
             }
-            if (tickInTurn == 6) {
+            if (tickInTurn == 3) {
                 for (a in aiPlayersHostedLocally) {
                     aiPlayersHostedLocally[a].doTurnFinal();
                 }
             }
-            if (tickInTurn == 7) {
+            if (tickInTurn == 5) {
                 processCooldowns();
             }
-            if (tickInTurn == 8) {
+            if (tickInTurn == 6) {
                 processBombWarningTicks();
                 processMisc();
             }
-            if (tickInTurn == 9) {
+            if (tickInTurn == 7) {
                 toggleHighlightBlink();
             }
             if (tickInTurn == ticksPerTurn) {
@@ -2697,7 +2762,7 @@
 
 
         function AI2(ownerId) {
-            this.timeRanges = [6, 14, 30];
+            this.timeRanges = [5, 10, 17, 40];
             this.ownerId = ownerId;
             this.pdata = [];
             this.rallyPoints = [];
@@ -2711,7 +2776,7 @@
                 this.planetId = planet.index;
                 this.owner = planet.owner;
                 this.lastSent = -100;
-
+                this._status = 'new';
                 this.desirability = 0; // M, L, size
                 this.influenceAddedThisStep = Array.apply(null, Array(numPlayers + 1)).map(Number.prototype.valueOf, 0);
                 this.lastDidntAttack = -50;
@@ -2726,7 +2791,7 @@
                     this.otherInfluence = 0;
                     this.goodTarget = 0;
                     this.goodRallyPoint = 0;
-
+                    this._status = 'new';
                     this.influence[this.planet.owner] = this.planet.pop
                     if (this.planet.owner > 0) {
                         this.influence[this.planet.owner] += this.growthPerTurn * 10;
@@ -2999,6 +3064,7 @@
                     else {
                         var temp = $.extend(true, {}, msg);
                         console.log(temp);
+                        console.log(tickInTurn);
                     }
                 }
 
@@ -3237,7 +3303,7 @@
                 //console.log(distanceMatrix[fromPlanetData.planetId][toPlanetData.planetId]);
                 var distRatio = Math.max(0, (1.3 - dist / 500));
                 var sizeRatio = (toPlanetData.desirability + 2) / (fromPlanetData.desirability + 2) * .5;
-                return Math.min(1, distRatio * sizeRatio)/2;
+                return Math.min(1, distRatio * sizeRatio) / 2;
             }
             this.doTurnFinal = function () {
                 if (this.doThisTurn) {
@@ -3366,19 +3432,21 @@
                             //+ Math.max(goodTarget1, goodTarget2, goodTarget3) / 2;
                             if (p.goodTarget > 0) {
                                 p.goodTarget *= Math.min(2, (-.5 + this.attackPref[p.effectiveOwner] * 1.5));
+                                if (this.attackPref[p.effectiveOwner] > 3) {
+                                    p.goodTarget *= this.attackPref[p.effectiveOwner] / 3;
+                                }
                                 p.goodTarget *= p.goodTarget;
                                 //this.log(p.goodTarget);
                             }
                             else if (p.goodTarget != 0) {
                                 console.log('ERROR target calc planet ' + p.planetId + ': t1 ' + goodTarget1 + ' t2 ' + goodTarget2 + ' t3 ' + goodTarget3);
                             }
-                            if (this.attackPref[p.effectiveOwner] > 3) {
-                                p.goodTarget *= this.attackPref[p.effectiveOwner] / 3;
-                            }
+
+                            p._status = 'goodTarget calced';
                             var willWin = false;
                             var alreadyWon = false;
                             if (p.desirability == 4)
-                                p.goodTarget *= 3;
+                                p.goodTarget *= 2;
                             if (p.goodTarget > .5) {
                                 p.goodTarget *= (.8 + p.desirability / 3);
 
@@ -3392,24 +3460,25 @@
                                     else {
                                         if (alreadyWon)
                                             alreadyWon = false; // got it but lost it again
-                                    }
-                                    if (p.aiMaxByTime[r] * attRatio > p.planetMaxByTime[r]) {
-                                        if (r == 0) {
-                                            attRatio = 1 / attRatio;
 
-                                            this.log('won first phase: ' + attRatio, 2);
+                                        if (p.aiMaxByTime[r] * attRatio > p.planetMaxByTime[r]) {
+                                            if (r == 0) {
+                                                attRatio = 1 / attackRatio;
 
-                                        }
-                                        else if (r == 1) {
-                                            attRatio = Math.max(attRatio, 1);
-                                            this.log('won 2nd phase: ' + attRatio, 2);
-                                        }
-                                        else {
+                                                this.log('won first phase: ' + attRatio, 2);
 
-                                            this.log('won', 2);
+                                            }
+                                            else if (r == 1) {
+                                                attRatio = Math.max(attRatio, 1);
+                                                this.log('won 2nd phase: ' + attRatio, 2);
+                                            }
+                                            else {
 
-                                            willWin = true;
-                                            break;
+                                                this.log('won', 2);
+
+                                                willWin = true;
+                                                break;
+                                            }
                                         }
                                     }
                                 }
@@ -3424,18 +3493,22 @@
                                 matrix = distanceMatrix[p.planetId];
                                 //if (matrix.planetId != idx) alert('error ' + idx);
                                 for (j in matrix) {
+                                    if (matrix[j].dist > _maxInfluenceDistance)
+                                        break;
                                     toPlanetData = this.planetData[matrix[j].planetId];
                                     if (toPlanetData.owner == this.ownerId) {
-                                        amt = p.goodTarget / (matrix[j].dist + 40);
+                                        amt = 10 * p.goodTarget / (matrix[j].dist + 40);
                                         //this.log('rally adding ' + amt);
                                         toPlanetData.goodRallyPoint += amt;
                                     }
                                 }
                             }
 
-
                             if (p.lastDidntAttack > turnId - 10) {
-                                p.goodTarget = -.1;
+                                p.goodTarget = p.goodTarget / 2;
+                            }
+                            else if (p.lastDidntAttack > turnId - 5) {
+                                p.goodTarget = p.goodTarget / 4;
                             }
                             else if (willWin && p.goodTarget > .5)
                                 p.goodTarget += .5;
@@ -3566,33 +3639,35 @@
                                     var dp = distanceMatrix[target.planetId][idx].planetId;
                                     if (planets[dp].owner == this.ownerId) {
                                         if (this.planetData[dp].lastSent <= turnId - 5 && !planets[dp].cooldown) {
-                                            if (this.planetData[dp].planet.pop + this.planetData[dp].safetyMargin > target.planetInfluence) {
-                                                newAttackRatio = attRatio;
-                                                r = this.getTimeRange(distanceMatrix[target.planetId][idx].dist, planets[dp].cooldown, true);
+                                            //if (this.planetData[dp].planet.pop + this.planetData[dp].safetyMargin > target.planetInfluence) {
+                                            newAttackRatio = attRatio;
+                                            r = this.getTimeRange(distanceMatrix[target.planetId][idx].dist, planets[dp].cooldown, true);
 
-                                                while (r > rangeStillDefensible) {
-                                                    rangeStillDefensible++;
-                                                    attackByTime[rangeStillDefensible] = attackByTime[rangeStillDefensible - 1];
+                                            while (r > rangeStillDefensible) {
+                                                rangeStillDefensible++;
+                                                attackByTime[rangeStillDefensible] = attackByTime[rangeStillDefensible - 1];
 
-                                                }
+                                            }
 
+                                            
 
+                                            sendAmt = this.planetData[dp].sendable;
 
-                                                sendAmt = this.planetData[dp].sendable;
+                                            this.log('range still defensible: ' + r);
 
+                                            if (r < 3) {
 
+                                                sendPercentOfRemainder = this.sendExtraProportion(this.planetData[dp], target, distanceMatrix[target.planetId][idx].dist);
+                                                this.log('sending proportion after safety margin: ' + sendPercentOfRemainder, 2);
+                                                sendAmt += (this.planetData[dp].planet.pop - sendAmt) * sendPercentOfRemainder;
+                                            }
+                                            sendEffect = sendAmt * attRatio;
 
-                                                if (r < 3) {
-
-                                                    sendPercentOfRemainder = this.sendExtraProportion(this.planetData[dp], target, distanceMatrix[target.planetId][idx].dist);
-                                                    this.log('sending proportion after safety margin: ' + sendPercentOfRemainder, 2);
-                                                    sendAmt += (this.planetData[dp].planet.pop - sendAmt) * sendPercentOfRemainder;
-                                                }
-                                                sendEffect = sendAmt * attRatio;
-
-                                                var needed = (target.planetActualByTime[rangeStillDefensible] + target.planetMaxByTime[rangeStillDefensible] / 2 + target.oppositionByTime[rangeStillDefensible] / 2) / 2;
-                                                needed = Math.max(target.planetActualByTime[rangeStillDefensible], needed);
-
+                                            var needed = (target.planetActualByTime[rangeStillDefensible] + target.planetMaxByTime[rangeStillDefensible] / 2 + target.oppositionByTime[rangeStillDefensible] / 2) / 2;
+                                            needed = Math.max(target.planetActualByTime[rangeStillDefensible], needed);
+                                            this.log('needed: ' + needed);
+                                            this.log('total sent: ' + (attackByTime[rangeStillDefensible] + sendEffect));
+                                            if (sendEffect > needed / 5) {
                                                 while (attackByTime[rangeStillDefensible] + sendEffect > needed) {
                                                     // have we sent too much?
                                                     if (attackByTime[rangeStillDefensible] + sendEffect > target.planetMaxByTime[rangeStillDefensible] * 1.1)
@@ -3605,75 +3680,79 @@
                                                         hasTakenAtLeastOnce = true;
                                                     }
                                                     this.log('safety send amt:' + sendAmt, 2);
-                                                    
+
                                                     //this.log('actual send amt:' + sendAmt + ' | );
-                                                    if (rangeStillDefensible < 3) {
+                                                    
                                                         rangeStillDefensible++;
-                                                        attackByTime[rangeStillDefensible] = attackByTime[rangeStillDefensible - 1];
-                                                    }
+                                                        if (rangeStillDefensible < 4) {
 
-                                                    needed = (target.planetActualByTime[rangeStillDefensible] + target.planetMaxByTime[rangeStillDefensible] / 2 + target.oppositionByTime[rangeStillDefensible] / 2) / 2;
-                                                    needed = Math.max(target.planetActualByTime[rangeStillDefensible], needed);
-                                                    sendAmt = Math.min(sendAmt, (needed * 1.2 - attackByTime[rangeStillDefensible]) / attRatio);
-                                                    sendEffect = sendAmt * attRatio;
+                                                            attackByTime[rangeStillDefensible] = attackByTime[rangeStillDefensible - 1];
 
-                                                    if (rangeStillDefensible == 3) 
-                                                    {
+                                                            needed = (target.planetActualByTime[rangeStillDefensible] + target.planetMaxByTime[rangeStillDefensible] / 2 + target.oppositionByTime[rangeStillDefensible] / 2) / 2;
+                                                            needed = Math.max(target.planetActualByTime[rangeStillDefensible], needed);
+
+
+
+                                                            sendAmt = Math.min(sendAmt, (needed * 1.2 - attackByTime[rangeStillDefensible]) / attRatio);
+                                                            sendEffect = sendAmt * attRatio;
+                                                        }
+                                                    else {
                                                         //needed = (target.planetActualByTime[2] + target.planetMaxByTime[2]/2 + target.oppositionByTime[2]/2) / 2;
                                                         //needed = Math.max(target.planetActualByTime[3], needed);
-                                                        if (attackByTime[2] + sendEffect > needed) {
+                                                        if (attackByTime[3] + sendEffect > needed) {
                                                             sentEnough = true;
+                                                            this.log('sent enough');
                                                         }
                                                         else {
-                                                            this.log('havent sent enought to secure? ' + (attackByTime[2] + sendEffect) + ' vs ' + ((target.planetMaxByTime[rangeStillDefensible] + target.oppositionByTime[rangeStillDefensible]) * .5));
+                                                            this.log('havent sent enought to secure? ' + (attackByTime[3] + sendEffect) + ' vs ' + needed);
                                                         }
                                                         break;
                                                     }
                                                 }
 
+                                                if (rangeStillDefensible < 4) {
+                                                    attRatio = newAttackRatio;
 
-                                                attRatio = newAttackRatio;
-
-
-                                                attackByTime[rangeStillDefensible] += sendEffect;
+                                                    attackByTime[rangeStillDefensible] += sendEffect;
+                                                }
                                                 if (sendAmt > maxAnySendAmt)
                                                     maxAnySendAmt = sendAmt;
                                                 attackers.push({ planet: this.planetData[dp], amt: sendAmt });
-                                                //this.log('adding attacker, sending: ' + sendAmt);
-                                                //this.log(attackByTime);
-                                                if (sentEnough) {
+
+                                            }
+                                            //this.log('adding attacker, sending: ' + sendAmt);
+                                            //this.log(attackByTime);
+                                            if (sentEnough) {
+                                                break;
+                                            }
+                                            if (hasTakenAtLeastOnce && rangeStillDefensible > 0) {
+                                                var neededRatio = 1.6 - rangeStillDefensible * .2;
+
+                                                neededRatio += 1 / (1 + this.attackPref[target.effectiveOwner] * .2);
+
+                                                costToTake = needed * .7 + target.planetMaxByTime[rangeStillDefensible - 1] * .2;
+                                                this.log('costToTake ' + costToTake + '   sending: ' + attackByTime[rangeStillDefensible - 1], 2);
+                                                if (attackByTime[rangeStillDefensible - 1] > costToTake * neededRatio) {
+                                                    this.log('might lose, but taking anyway!');
+                                                    takeAnyway = true;
+                                                }
+
+                                            }
+                                            if (rangeStillDefensible == 4) {
+                                                if (!takeAnyway) {
+                                                    this.log('unable to be sure of taking planet at r: ' + r, 2);
+                                                    this.log(attRatio, 2);
+                                                    this.log(attackByTime, 2);
+                                                    this.log(target, 2);
+
+                                                    target.lastDidntAttack = turnId;
+                                                    attackers = [];
+                                                    giveUp = true;
                                                     break;
                                                 }
-                                                if (hasTakenAtLeastOnce && rangeStillDefensible > 0) {
-                                                    var neededRatio = 1 + rangeStillDefensible * .2;
-
-                                                    neededRatio += 1 / (1 + 3 * this.attackPref[target.effectiveOwner]);
-
-                                                    costToTake = target.planetMaxByTime[rangeStillDefensible - 1];
-                                                    this.log('costToTake ' + costToTake + '   sending: ' + attackByTime[rangeStillDefensible], 2);
-                                                    if (attackByTime[rangeStillDefensible] > costToTake * neededRatio) {
-                                                        this.log('might lose, but taking anyway!');
-                                                        takeAnyway = true;
-                                                    }
-
-                                                }
-                                                if (rangeStillDefensible == 3) {
-
-
-                                                    if (!takeAnyway) {
-                                                        this.log('unable to be sure of taking planet at r: ' + r, 2);
-                                                        this.log(attRatio, 2);
-                                                        this.log(attackByTime, 2);
-                                                        this.log(target, 2);
-
-                                                        target.lastDidntAttack = turnId;
-                                                        attackers = [];
-                                                        giveUp = true;
-                                                        break;
-                                                    }
-                                                }
-                                                //suppliers[r].push(this.planetData[dp]);
                                             }
+                                            //suppliers[r].push(this.planetData[dp]);
+
                                         }
                                     }
                                     if (sentEnough || giveUp) {
@@ -3844,13 +3923,13 @@
     <div id="pregame" class="clearfix" style="color:white; padding:10px">
         <h2>PalConq</h2>
         <div class="chrome_warning">
-            You are not using a browser that's not Chrome.<br />For best results, please run Chrome and come back.
+            You are using a browser that's not Chrome.<br />For best results, please run Chrome and come back.
         </div>
 
 
         Waiting for players. Joined: <span id="playersLabel"></span>
         <br /><br />
-        Suggestion: Before starting, hit <b>F11</b> to go fullscreen</span>
+        Suggestion: Before starting, hit <b>F11</b> to go fullscreen
         <br /><br />
         <button id="btnStart" style="visibility:hidden" onclick="startGame();">START GAME</button>
         <hr />
@@ -3858,8 +3937,12 @@
             <div class="rows">
                 <h3>Change game settings</h3>
                 <div>
-                    <label>AI Lethargy (%): </label>
-                    <input type="text" id="lethargy" />
+                    <label>AI Personality: </label>
+                    <select id="lethargy">
+                        <option value="0">Manic</option>
+                        <option value="40">Grumpy</option>
+                        <option value="65">Sleepy</option>
+                    </select>
                 </div>
 
                 <div>
@@ -3908,6 +3991,7 @@
                     </div>
                 </div>
                 <div>
+                    <button id="btnResetSettings" onclick="resetSettings();">DEFAULT SETTINGS</button>
                     <button id="btnSettings" onclick="sendSettings();">UPDATE SETTINGS</button>
                 </div>
 
