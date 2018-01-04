@@ -615,7 +615,7 @@
         function createCookie(name, value, seconds) {
             value = encodeURIComponent(JSON.stringify(value));
             var date = new Date();
-            date.setTime(date.getTime() + (seconds * 1000));
+            date.setTime(date.getTime() + (14 * 24 * 60 * 60 * 1000));
             var expires = "; expires=" + date.toGMTString();
             document.cookie = name + "=" + value + expires + "; path=/";
         }
@@ -1087,9 +1087,9 @@
             //console.log('exploding-----------');
             var fleet;
             var planet;
-            var maxDist = 120 + Math.sqrt(source.pop) * 15;
+            var maxDist = 80 + Math.sqrt(source.pop) * 10;
             var maxDistSquared = maxDist * maxDist;
-            var maxPercent = Math.sqrt(source.pop) * 7.5 + 25;
+            var maxPercent = Math.sqrt(source.pop) * 5 + 25;
             if (maxPercent > 100)
                 maxPercent = 100;
             source.pop = 0.01;
