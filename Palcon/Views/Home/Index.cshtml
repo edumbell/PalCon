@@ -283,7 +283,7 @@
         var const_bomb = 'b';
         var maxcooldown = 80;
         var maxBombTime = 3 * 2 * 60;
-        var startDelay = 250;
+        var startDelay = 1550;
         var localPlayerIds = [];
         keyconst.ctrl = [17, 16, 224]; // 91 behaves odd in win/chrome
         keyconst.z = [90];
@@ -375,18 +375,20 @@
         }
 
         function resize() {
+            var ratio = 1;
             stage.canvas.width = window.innerHeight * 1.5;
             stage.canvas.height = window.innerHeight;
+            stage.canvas.getContext("2d").setTransform(ratio, 0, 0, ratio, 0, 0);
             //document.getElementById("PalCanvas").setAttribute('width', window.innerHeight * 1.5);
             //document.getElementById("PalCanvas").setAttribute('height', window.innerHeight);
             var swidth = document.getElementById("PalCanvas").width;
             var sheight = document.getElementById("PalCanvas").height;
-            globalscale = 1;
+            globalscale = 1 / ratio;
             planetRadiusPixels = planetradiuspercent * globalscale * 10;
 
-            $("#rightcontainer").css({ width: window.innerWidth - swidth - 10 })
+            $("#rightcontainer").css({ width: window.innerWidth - swidth- 10 })
 
-            stage.scaleX = stage.scaleY = swidth / 1000;
+            stage.scaleX = stage.scaleY = swidth / 1000 * ratio;
             ybound = 1000 * sheight / swidth;
             xbound = 1000;
 
@@ -783,7 +785,7 @@
             for (var i in planets) {
                 p = planets[i];
                 if (p.owner == oid && p.growth == 4) {
-                    showExplosion(p.x, p.y, p.radius * 3, oid, 30, true);
+                    showExplosion(p.x, p.y, p.radiusUnscaled * 3, oid, 30, true);
                 }
             }
         }
@@ -815,7 +817,7 @@
                     p.owner = 0;
                     onPlanetChangeOwner(p);
                     //showOrderStart(p.x, p.y, p.radius, oid);
-                    showExplosion(p.x, p.y, p.radius * 3, oid, 3, true);
+                    showExplosion(p.x, p.y, p.radiusUnscaled * 3, oid, 3, true);
                 }
             }
         }
@@ -825,7 +827,7 @@
         var ticksPerTurn = 10;
         var msPerTurn = 500;
         var settings = {};
-        resetSettings();
+        resetSettings();    
 
 
         var planetradiuspercent = 1.9;
@@ -1135,7 +1137,7 @@
                 if (planet != source) {
                     distSquared = Math.pow(source.x - planet.x, 2) + Math.pow(source.y - planet.y, 2);
                     if (distSquared < maxDistSquared) {
-                        dist = Math.sqrt(distSquared) - maxDist / 2 - planet.radius;
+                        dist = Math.sqrt(distSquared) - maxDist / 2 - planet.radiusUnscaled;
                         percent = maxPercent * (maxDist / 2 - dist) / (maxDist / 2);
                         if (percent > 100)
                             percent = 100;
@@ -1212,7 +1214,7 @@
                     dragBox.x = evt.stageX / stage.scaleX;
                     dragBox.y = evt.stageY / stage.scaleX;
                     var col = "#ffffff";
-                    dragBox.graphics.setStrokeStyle(2 * globalscale, 'square', 'miter', 0, true);
+                    dragBox.graphics.setStrokeStyle(2, 'square', 'miter', 0, true);
                     dragBox.graphics.beginStroke(col);
                     dragBox.alpha = .4;
                     dragBox.graphics.drawRect(0, 0, 1, 1);
@@ -1246,7 +1248,7 @@
                     p = planets[idx];
                     if (p.owner == ownerIndex && p.highlight == null) {
                         var distFromStartSquared = Math.pow(p.x - dragBox.x, 2) + Math.pow(p.y - dragBox.y, 2);
-                        if (distFromStartSquared < p.radius * p.radius) {
+                        if (distFromStartSquared < p.radiusUnscaled * p.radiusUnscaled) {
                             highlightPlanet(p);
                         }
                         else if (p.x > x1 && p.x < x2) {
@@ -1279,7 +1281,7 @@
                 layers.planets.addChild(sendPercentBar);
 
                 highlightedPlanet = highlightedPlanets[idx];
-                sendPercentBar.graphics.setStrokeStyle(7 * globalscale, 'square', 'miter', 0, true);
+                sendPercentBar.graphics.setStrokeStyle(7, 'square', 'miter', 0, true);
                 //sendPercentBar.graphics.setStrokeDash([1, 10*globalscale], 0);
                 sendPercentBar.alpha = sendPercentAlpha;
                 var col = ownercolours[ownerIndex];
@@ -1320,7 +1322,7 @@
                             to: toPlanet.index
                         }
                        );
-                    showOrderStart(fromPlanet.x, fromPlanet.y, fromPlanet.radius, owner);
+                    showOrderStart(fromPlanet.x, fromPlanet.y, fromPlanet.radiusUnscaled, owner);
                 }
                 return true;
             }
@@ -1401,7 +1403,8 @@
             this.owner = owner;
             this.growth = growth;
             this.radius = Math.sqrt(growth) * planetRadiusPixels;   // pixels
-            this.shape = planetShape(this.radius, x, y, owner);
+            this.radiusUnscaled = Math.sqrt(growth) * planetradiuspercent * 10;   // 
+            this.shape = planetShape(this.radiusUnscaled, x, y, owner);
             this.fillupContainer = new createjs.Container();
             this.label = planetLabel(this);
             this.fullpop = growth * 100;
@@ -1631,7 +1634,7 @@
 
             var shape = new createjs.Container();
             var strokeWidth = 2 * globalscale;
-            var isize = size - strokeWidth;
+            var isize = size * globalscale - strokeWidth;
             var col = ownercolours[owner];
             var circle = new createjs.Shape();
             shape.addChild(circle);
@@ -1672,7 +1675,7 @@
             var shape = new createjs.Shape();
             var line = new createjs.Shape();
             //shape.scaleX = shape.scaleY = 1;
-            var size = planet.radius - 2 * globalscale
+            var size = planet.radius - 2 * globalscale;
             var y = size * (1 - Math.min(2, (planet.pop * 2 / planet.fullpop))) + globalscale;
             shape.graphics.beginLinearGradientFill(["transparent", col, col, "transparent"], [0, .01, .2, .6], 0, y - 1 * globalscale, 0, y + size * 2);
             //shape.graphics.beginFill(ownercolours[planet.owner]);
@@ -1696,7 +1699,7 @@
             var circle = new createjs.Shape();
             //circle.graphics.setStrokeStyle(3 * globalscale);
             circle.graphics.beginFill(ownercolours[planet.owner])
-            .drawCircle(0, 0, planet.radius + 5);
+            .drawCircle(0, 0, planet.radius + 5 * globalscale);
             circle.alpha = .01;
             circle.x = planet.x;
             circle.y = planet.y;
@@ -1705,22 +1708,22 @@
 
         function tickingBombShape(planet, fraction, isSetup) {
             var circle = newScaledShape();
-            var width = 3.5 * globalscale;
+            var width = 3.5;
             var stroke = 2.5;
 
             if (isSetup) {
                 circle.alpha = 1;
-                width = 1 * globalscale;
+                width = 1.5;
                 stroke = 1;
             }
             else {
                 circle.alpha = 1;
             }
             circle.graphics.setStrokeStyle(width)
-                .setStrokeDash([stroke * globalscale, (5 - stroke) * globalscale], 0)
+                .setStrokeDash([stroke, (5 - stroke)], 0)
                 .beginStroke("#fff")
             //circle.graphics.beginStroke("#FFF")
-                .arc(0, 0, planet.radius + 7 * globalscale, 0, 0 - fraction * Math.PI * 2, true);
+                .arc(0, 0, planet.radiusUnscaled + 7, 0, 0 - fraction * Math.PI * 2, true);
             //circle.graphics.setStrokeStyle(1.5 * globalscale);
             //circle.graphics.beginStroke("#fff").drawCircle(0, 0, planet.radius + width/2);
 
@@ -1732,10 +1735,10 @@
         function cooldownShape(planet, fraction) {
             var circle = newScaledShape();
             var width = 5;
-            circle.graphics.setStrokeStyle(width * globalscale)
-                .setStrokeDash([4 * globalscale, 1 * globalscale], 0)
+            circle.graphics.setStrokeStyle(width)
+                .setStrokeDash([4, 1], 0)
                 .beginStroke(ownercolours[planet.owner])
-                .arc(0, 0, planet.radius - width, 0, fraction * Math.PI * 2);
+                .arc(0, 0, planet.radiusUnscaled - width, 0, fraction * Math.PI * 2);
             circle.alpha = 1;
             circle.x = planet.x;
             circle.y = planet.y;
@@ -1743,10 +1746,10 @@
         }
 
         function planetClickableShape(planet) {
-            var circle = new createjs.Shape();
+            var circle = newScaledShape();
             //circle.graphics.setStrokeStyle(3 * globalscale);
             circle.graphics.beginFill(ownercolours[planet.owner])
-            .drawCircle(0, 0, planet.radius + 5);
+            .drawCircle(0, 0, planet.radiusUnscaled + 5);
             circle.alpha = .01;
             circle.x = planet.x;
             circle.y = planet.y;
@@ -1755,24 +1758,25 @@
 
         function bombShape(planet) {
             var container = new createjs.Container();
+            container.scaleX = container.scaleY = globalscale;
             var circle = newScaledShape();
             var clickable = newScaledShape();
             container.addChild(circle);
             container.addChild(clickable);
-            circle.x = planet.x + planet.radius + 6;
-            circle.y = planet.y - planet.radius + 6;
+            circle.x = planet.x + planet.radiusUnscaled + 6;
+            circle.y = planet.y - planet.radiusUnscaled + 6;
             clickable.x = circle.x;
             clickable.y = circle.y;
             clickable.alpha = .01;
             clickable.graphics.beginFill(ownercolours[planet.owner])
                 .drawCircle(0, 0, 7);
-            var width = 2 * globalscale;
+            var width = 2;
             circle.graphics.setStrokeStyle(width)
                 .beginStroke('#ccc')
                 .beginFill('#777')
                 .drawCircle(0, 0, 5)
                 .endFill()
-                .setStrokeStyle(2 * globalscale)
+                .setStrokeStyle(2)
                 .beginStroke("#fff")
                 .moveTo(-4, -4)
                 .lineTo(-6, -9);
@@ -1781,14 +1785,14 @@
 
         function highlightShape(planet) {
             var col = [ownercolours[ownerIndex]];
-            var circle = new createjs.Shape();
-            var width = 11 * globalscale;
+            var circle = newScaledShape();
+            var width = 11 ;
             circle.graphics.setStrokeStyle(width);
             circle.graphics.beginRadialGradientStroke(["transparent", "#fff", col, "transparent"], [0, .2, .3, 1],
-                0, 0, planet.radius,
-             0, 0, planet.radius + 11 * globalscale)
+                0, 0, planet.radiusUnscaled,
+             0, 0, planet.radiusUnscaled + 11)
             //circle.graphics.beginStroke("#FFF")
-            .drawCircle(0, 0, planet.radius + 5 * globalscale);
+            .drawCircle(0, 0, planet.radiusUnscaled + 5);
             //circle.graphics.setStrokeStyle(1.5 * globalscale);
             //circle.graphics.beginStroke("#fff").drawCircle(0, 0, planet.radius + width/2);
             circle.alpha = .66;
@@ -1879,12 +1883,12 @@
             var xd = (planet2.x - x);
             var yd = (planet2.y - y);
             var dist = Math.sqrt(xd * xd + yd * yd);
-            var startRadProportion = planet1.radius / dist;
+            var startRadProportion = planet1.radiusUnscaled / dist;
             var startCuttoffX = xd * startRadProportion;
             var startCuttoffY = yd * startRadProportion;
             x = x + startCuttoffX;
             y = y + startCuttoffY;
-            var endRadProportion = planet2.radius / dist;
+            var endRadProportion = planet2.radiusUnscaled / dist;
             xd = xd - xd * endRadProportion - startCuttoffX;
             yd = yd - yd * endRadProportion - startCuttoffY;
             shape.graphics.moveTo(0, 0);
@@ -1909,10 +1913,10 @@
 
         function fleetPath(p1, p2, owner, width) {
             if (!width)
-                width = 3 * globalscale;
-            var shape = new createjs.Shape();
+                width = 3;
+            var shape =newScaledShape();
             shape.graphics.setStrokeStyle(width, 0, 0, 0, true);
-            shape.graphics.setStrokeDash([2 * globalscale, 2 * globalscale], 0);
+            shape.graphics.setStrokeDash([3, 3], 0);
             shape.graphics.beginStroke(ownercolours[owner]);
             drawSurfacePath(p1, p2, shape);
             //shape.graphics.moveTo(0, 0);
@@ -1924,7 +1928,7 @@
         }
 
         function bg() {
-            var bg = new createjs.Shape();
+            var bg = newScaledShape();
             //bg.scaleX = 1;
             //bg.scaleY = 1;
             bg.graphics.beginFill("#000000").drawRect(0, 0, xbound, ybound);
@@ -2126,7 +2130,7 @@
             }
 
             var growth = 4;
-
+            var neutralOwner = 1;
             var numNeutrals = 12 + (numPlayers + 1) * (settings.ppp / 10);
             if (numNeutrals > 100)
                 numNeutrals = 100;
@@ -2144,7 +2148,7 @@
                     var radius = Math.sqrt(growth) * planetradiuspercent;
                     newPlanet =
                     {
-                        owner: 0,
+                        owner: neutralOwner,
                         x: Math.random() * (100 - radius * 2) + radius,
                         y: Math.random() * (100 / xbound * ybound - radius * 2) + radius,
                         pop: growth * neutralPlanetCost / 4 + Math.random() * growth * neutralPlanetCost / 4 + extraCost,
@@ -2257,7 +2261,7 @@
 
                     //console.log(c);
                     var txt = new createjs.Text(c, "bold 14px arial", "#fff");
-                    txt.x = 500;
+                    txt.x = xbound / 2;
                     txt.y = ybound / 2;
                     txt.scaleX = 300;
                     txt.scaleY = 300;
@@ -2268,8 +2272,8 @@
                     layers.planets.addChild(txt);
                     var tween = createjs.Tween.get(txt, { useTicks: false });
                     tween
-                        .to({ scaleX: 200, scaleY: 200, alpha: .4 }, msPerTurn / 3, null)
-                        .to({ scaleX: 60, scaleY: 60, alpha: .2 }, msPerTurn * 2, null)
+                        .to({ scaleX: 200, scaleY: 200, alpha: .4 }, msPerTurn, null)
+                        .to({ scaleX: 60, scaleY: 60, alpha: .2 }, msPerTurn, null)
                         .to({ scaleX: 0, scaleY: 0, alpha: .1 }, msPerTurn, null);
                     c--;
                 }, idx * startDelay + startDelay);
@@ -2319,7 +2323,7 @@
         function moveFleet(f, idx) {
             if (f != null) {
                 f.distToGo = Math.sqrt(Math.pow((f.shape.x - f.destination.shape.x), 2) + Math.pow((f.shape.y - f.destination.shape.y), 2))
-                 - f.destination.radius * globalscale
+                 - f.destination.radiusUnscaled * globalscale
                  - f.distMidToFront * f.gameScale;
 
                 if (f.distToGo < 0) {
@@ -2347,13 +2351,11 @@
         }
 
         function showOrderStart(x, y, radius, owner) {
-            var circle = new createjs.Shape();
-            circle.graphics.setStrokeStyle(8 * globalscale);
+            var circle = newScaledShape();
+            circle.graphics.setStrokeStyle(8);
             circle.graphics.beginStroke(ownercolours[owner]).drawCircle(0, 0, radius - 3);
             circle.x = x;
             circle.y = y;
-            circle.scaleX = globalscale;
-            circle.scaleY = globalscale;
             circle.alpha = .7;
             layers.planets.addChild(circle);
             createjs.Tween.get(circle)
@@ -2380,23 +2382,23 @@
         }
 
         function showExplosion(x, y, size, owner, timeScale, noBrightPatch) {
+            var circle = newScaledShape();
             if (!timeScale)
                 timeScale = 1;
-            var circle = new createjs.Shape();
-            circle.graphics.setStrokeStyle((8 + size / 3) * globalscale)
+            circle.graphics.setStrokeStyle((8 + size / 3))
             .beginStroke(ownercolours[owner]).drawCircle(0, 0, 5 + size * 2);
             circle.x = x;
             circle.y = y;
-            circle.scaleX = .1;
-            circle.scaleY = .1;
+            circle.scaleX = .1 * globalscale;
+            circle.scaleY = .1 * globalscale;
             circle.alpha = 1;
             layers.fleets.addChild(circle);
 
             var tween = createjs.Tween.get(circle);
             if (!noBrightPatch) {
-                tween.to({ scaleX: .3, scaleY: .3 }, msPerTurn * .15 * timeScale);
+                tween.to({ scaleX: .3 * globalscale, scaleY: .3 * globalscale }, msPerTurn * .15 * timeScale);
             }
-            tween.to({ scaleX: 1, scaleY: 1, alpha: 0 }, msPerTurn * 2 * timeScale, createjs.Ease.quintOut);
+            tween.to({ scaleX: 1 * globalscale, scaleY: 1 * globalscale, alpha: 0 }, msPerTurn * 2 * timeScale, createjs.Ease.quintOut);
         }
 
         function playSound(sound, x, rate, volume) {
@@ -2426,7 +2428,7 @@
         }
 
         function drawPlanet(p) {
-            p.shape = planetShape(p.radius, p.x, p.y, p.owner);
+            p.shape = planetShape(p.radiusUnscaled, p.x, p.y, p.owner);
             p.label = planetLabel(p);
             p.fillup = planetFillup(p);
             layers.planets.addChild(p.shape);
@@ -2449,8 +2451,8 @@
             var volume = Math.sqrt(landPop + 10) / 10 - .3;
             if (volume > 1)
                 volume = 1;
-            var spotx = f.shape.x + Math.cos(Math.atan(f.dy / f.dx)) * Math.sign(f.dx) * f.distMidToFront * f.shape.scaleX;
-            var spoty = f.shape.y + Math.sin(Math.atan(f.dy / f.dx)) * Math.sign(f.dx) * f.distMidToFront * f.shape.scaleX;
+            var spotx = f.shape.x + Math.cos(Math.atan(f.dy / f.dx)) * Math.sign(f.dx) * f.distMidToFront * f.shape.scaleX / globalscale;
+            var spoty = f.shape.y + Math.sin(Math.atan(f.dy / f.dx)) * Math.sign(f.dx) * f.distMidToFront * f.shape.scaleX / globalscale;
 
             if (f.owner != f.destination.owner) {
                 // ATTACK
@@ -2461,7 +2463,7 @@
                 if (rate > 3)
                     rate = 3;
 
-                showExplosion(spotx, spoty, f.shape.scaleX, f.owner, 1);
+                showExplosion(spotx, spoty, f.shape.scaleX / globalscale, f.owner, 1);
 
                 var damage = landPop * attackRatio;
 
@@ -2488,14 +2490,16 @@
                     fleetLoss = f.destination.pop / attackRatio;
                     f.destination.pop = f.pop - fleetLoss;
 
-                    showExplosion(p.x, p.y, p.radius * 3, p.owner, 2, true);
                     var ex = p.x;
                     var ey = p.y;
-                    var er = p.radius * 3;
+                    var er = 30 + p.radiusUnscaled;
+
+                    showExplosion(ex, ey, er, p.owner, 5, true);
+                    
                     var fowner = f.owner;
                     setTimeout(function () {
-                        showExplosion(ex, ey, er, fowner, 2, true);
-                    }, 200);
+                        showExplosion(ex, ey, er*.7, fowner, 2, true);
+                    }, 500);
                     for (var idx in highlightedPlanets) {
                         if (highlightedPlanets[idx] == p) {
                             unHighlightPlanet(p);
@@ -2541,7 +2545,7 @@
                 if (rate < .5)
                     rate = .5;
                 playSound(sound_land, p.x, rate, volume);
-                showExplosion(spotx, spoty, f.shape.scaleX, f.owner, 1);
+                showExplosion(spotx, spoty, f.shape.scaleX / globalscale, f.owner, 1);
                 f.destination.pop += landPop;
                 f.pop -= landPop
                 f.redrawScale();
@@ -3470,6 +3474,9 @@
                                 if (this.attackPref[p.effectiveOwner] > 3) {
                                     p.goodTarget *= this.attackPref[p.effectiveOwner] / 3;
                                 }
+                                if (this.attackPref[p.effectiveOwner] < 4) {
+                                    p.goodTarget *= (.2 + this.attackPref[p.effectiveOwner]*.2);
+                                }
                                 p.goodTarget *= p.goodTarget;
                                 //this.log(p.goodTarget);
                             }
@@ -3786,7 +3793,7 @@
                                                 if (r < 4 && !takeAnyway && hasTakenAtLeastOnce && rangeStillDefensible > 2) {
                                                     var neededRatio = 1.6 - rangeStillDefensible * .2;
 
-                                                    neededRatio += 1 / (1 + this.attackPref[target.effectiveOwner] * .2);
+                                                    neededRatio += 1 / (1 + this.attackPref[target.effectiveOwner] * .4);
 
                                                     costToTake = needed * .2 + target.planetActualByTime[rangeStillDefensible] * .8;
                                                     this.log('costToTake ' + costToTake + '   sending: ' + attackByTime[rangeStillDefensible], 2);

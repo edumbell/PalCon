@@ -204,19 +204,31 @@ namespace Palcon.Controllers
             var allSent = game.AllCommandsIn();
             if (allSent)
             {
-                EndTurn(game);
+                var turnId = game.turnId;
+                lock (game)
+                {
+                    if (turnId == game.turnId)
+                        EndTurn(game);
+                }
             }
             else
             {
-                var schedule = System.Threading.Tasks.Task.Run(async () =>
-                {
-                    await System.Threading.Tasks.Task.Delay(10500);
-                    if (game.TimeLastTurnEnd.AddMilliseconds(10500) < DateTime.Now)
-                    {
-                        EndTurn(game);
-                    }
-                });
+                var schedule = System.Threading.Tasks.Task.Run(() => { ForceEndTurnIfTimeout(game, game.turnId); });
             }
+        }
+
+        public async void ForceEndTurnIfTimeout(Game game, int turnId)
+        {
+
+            await System.Threading.Tasks.Task.Delay(2500);
+            lock (game)
+            {
+                if (game.TimeLastTurnEnd.AddMilliseconds(2500) < DateTime.Now && game.turnId == turnId)
+                {
+                    EndTurn(game);
+                }
+            }
+
         }
 
 
