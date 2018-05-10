@@ -283,7 +283,7 @@
         var const_bomb = 'b';
         var maxcooldown = 80;
         var maxBombTime = 3 * 2 * 60;
-        var startDelay = 1550;
+        var startDelay = 1850;
         var localPlayerIds = [];
         keyconst.ctrl = [17, 16, 224]; // 91 behaves odd in win/chrome
         keyconst.z = [90];
@@ -2130,7 +2130,7 @@
             }
 
             var growth = 4;
-            var neutralOwner = 1;
+            var neutralOwner = 0;
             var numNeutrals = 12 + (numPlayers + 1) * (settings.ppp / 10);
             if (numNeutrals > 100)
                 numNeutrals = 100;
@@ -2272,8 +2272,8 @@
                     layers.planets.addChild(txt);
                     var tween = createjs.Tween.get(txt, { useTicks: false });
                     tween
-                        .to({ scaleX: 200, scaleY: 200, alpha: .4 }, msPerTurn, null)
-                        .to({ scaleX: 60, scaleY: 60, alpha: .2 }, msPerTurn, null)
+                        .to({ scaleX: 200, scaleY: 200, alpha: .2 }, msPerTurn, null)
+                        .to({ scaleX: 60, scaleY: 60, alpha: .4 }, msPerTurn, null)
                         .to({ scaleX: 0, scaleY: 0, alpha: .1 }, msPerTurn, null);
                     c--;
                 }, idx * startDelay + startDelay);
