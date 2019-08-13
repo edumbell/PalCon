@@ -281,10 +281,17 @@
         var const_checksum = 'cs';
         var const_won = 'w';
         var const_bomb = 'b';
+        var global_volume = .3;
         var maxcooldown = 80;
         var maxBombTime = 3 * 2 * 60;
         var startDelay = 1850;
         var localPlayerIds = [];
+        var lobbyColours = [@for (var c = 1; c < Model.Count(); c++)
+        {
+            @Html.Raw("'" + Model[c] + "'");
+            @:,
+        }
+        ];
         keyconst.ctrl = [17, 16, 224]; // 91 behaves odd in win/chrome
         keyconst.z = [90];
         keyconst.x = [88];
@@ -301,8 +308,7 @@
             return indexOfMaxValue;
         }
 
-        function getMaxValue(array)
-        {
+        function getMaxValue(array) {
             return array.reduce((iMax, x, i, arr) => x > arr[iMax] ? i : iMax, 0);
         }
 
@@ -386,7 +392,7 @@
             globalscale = 1 / ratio;
             planetRadiusPixels = planetradiuspercent * globalscale * 10;
 
-            $("#rightcontainer").css({ width: window.innerWidth - swidth- 10 })
+            $("#rightcontainer").css({ width: window.innerWidth - swidth - 10 })
 
             stage.scaleX = stage.scaleY = swidth / 1000 * ratio;
             ybound = 1000 * sheight / swidth;
@@ -412,11 +418,16 @@
 
 
 
-            myHub.client.receiveChat = function (pid, msg) {
+            myHub.client.receiveChat = function (cid, pid, msg) {
+                var col;
+                if (cid)
+                    col = lobbyColours[cid-1];
+                else
+                    col = ownercolours[pid];
                 if (aiPlayersHostedLocally.length > 0) {
                     processCheatCode(pid, msg);
                 }
-                var html = "<br/><span style='color:" + ownercolours[pid] + "'>"
+                var html = "<br/><span style='color:" + col + "'>"
                 + msg + "</span>";
                 $("#chat_scroller").append(html);
                 scrollBottom($("#chat_scroller"));
@@ -604,12 +615,11 @@
                 msg = $("#chat_input").val();
                 $("#chat_input").val('');
             }
-            myHub.server.sendChat(gameId, ownerIndex, null, msg);
-
+            myHub.server.sendChat(gameId, selectedColourIndex, ownerIndex, null, msg);
         }
 
         function sendFormattedChat(pid, topid, message) {
-            myHub.server.sendChat(gameId, pid, topid, message);
+            myHub.server.sendChat(gameId, null, pid, topid, message);
         }
 
         function isPressed(which) {
@@ -646,9 +656,9 @@
         function sendSelectedColour() {
             var selectedInput = $("input[name='colour']:checked");
             if (selectedInput.length) {
-                var colourVal = selectedInput.val();
-                myHub.server.sendColour(gameId, colourVal);
-                createCookie("colour", colourVal);
+                selectedColourIndex = selectedInput.val();
+                myHub.server.sendColour(gameId, selectedColourIndex);
+                createCookie("colour", selectedColourIndex);
             }
         }
 
@@ -753,7 +763,7 @@
         }
 
         function newGame() {
-            myHub.server.sendChat(gameId, "[has left to start a new game]");
+            myHub.server.sendChat(gameId, null, ownerIndex, null, "[has left to start a new game]");
             window.location.reload();
         }
         var _paused;
@@ -827,7 +837,7 @@
         var ticksPerTurn = 10;
         var msPerTurn = 500;
         var settings = {};
-        resetSettings();    
+        resetSettings();
 
 
         var planetradiuspercent = 1.9;
@@ -1403,7 +1413,7 @@
             this.owner = owner;
             this.growth = growth;
             this.radius = Math.sqrt(growth) * planetRadiusPixels;   // pixels
-            this.radiusUnscaled = Math.sqrt(growth) * planetradiuspercent * 10;   // 
+            this.radiusUnscaled = Math.sqrt(growth) * planetradiuspercent * 10;   //
             this.shape = planetShape(this.radiusUnscaled, x, y, owner);
             this.fillupContainer = new createjs.Container();
             this.label = planetLabel(this);
@@ -1611,6 +1621,7 @@
         var ownercolours; // = ['#dddddd', '#ffd400', '#ff6688', '#00f000', '#50f050', '#7788ff', '#ff00ff', '#aacc00', '#ffffff'];
 
         var ownerIndex = null;
+        var selectedColourIndex = 1;
 
         function newScaledShape() {
             var shape = new createjs.Shape();
@@ -1786,7 +1797,7 @@
         function highlightShape(planet) {
             var col = [ownercolours[ownerIndex]];
             var circle = newScaledShape();
-            var width = 11 ;
+            var width = 11;
             circle.graphics.setStrokeStyle(width);
             circle.graphics.beginRadialGradientStroke(["transparent", "#fff", col, "transparent"], [0, .2, .3, 1],
                 0, 0, planet.radiusUnscaled,
@@ -1914,7 +1925,7 @@
         function fleetPath(p1, p2, owner, width) {
             if (!width)
                 width = 3;
-            var shape =newScaledShape();
+            var shape = newScaledShape();
             shape.graphics.setStrokeStyle(width, 0, 0, 0, true);
             shape.graphics.setStrokeDash([3, 3], 0);
             shape.graphics.beginStroke(ownercolours[owner]);
@@ -2411,13 +2422,15 @@
                 rate = 1;
             if (!volume)
                 volume = 1;
-            sound._volume = volume;
+            var v = volume * global_volume;
+            sound._volume = v;
+            //console.log(sound._volume);
             sound._stereo = pan;
             sound._rate = rate;
             var s = sound.play();
             sound.stereo(pan, s);
             sound.rate(rate, s);
-            sound.volume(volume, s);
+            sound.volume(v, s);
         }
 
         function redrawPlanet(p) {
@@ -2467,7 +2480,6 @@
 
                 var damage = landPop * attackRatio;
 
-
                 if (f.destination.pop >= damage) {
 
                     playSound(sound_attack, p.x, rate / 2 + .25, volume * .35);
@@ -2495,10 +2507,10 @@
                     var er = 30 + p.radiusUnscaled;
 
                     showExplosion(ex, ey, er, p.owner, 5, true);
-                    
+
                     var fowner = f.owner;
                     setTimeout(function () {
-                        showExplosion(ex, ey, er*.7, fowner, 2, true);
+                        showExplosion(ex, ey, er * .7, fowner, 2, true);
                     }, 500);
                     for (var idx in highlightedPlanets) {
                         if (highlightedPlanets[idx] == p) {
@@ -2814,9 +2826,8 @@
                     this.planetMaxByTime = Array.apply(null, Array(5)).map(Number.prototype.valueOf, 0);
                     this.oppositionByTime = Array.apply(null, Array(5)).map(Number.prototype.valueOf, 0);
                     this.otherMaxByTime = []; // Array.apply(null, Array(4)).map(Number.prototype.valueOf, 0);
-                    for (var i = 0; i <= 4; i++)
-                    {
-                        this.otherMaxByTime.push(Array.apply(null, Array(numPlayers+1)).map(Number.prototype.valueOf, 0))
+                    for (var i = 0; i <= 4; i++) {
+                        this.otherMaxByTime.push(Array.apply(null, Array(numPlayers + 1)).map(Number.prototype.valueOf, 0))
                     }
 
                     this.aiActualByTime = Array.apply(null, Array(5)).map(Number.prototype.valueOf, 0);
@@ -3016,7 +3027,7 @@
                     if (p.planetInfluence > p.otherInfluence) {
                         var propOfPop = p.planet.pop * (p.planetInfluence - p.otherInfluence) / (p.planetInfluence + p.otherInfluence);
                         var infDiff = p.planetInfluence - p.otherInfluence;
-                        p.safetyMargin = Math.min(p.planet.pop, infDiff/2 + propOfPop/2);
+                        p.safetyMargin = Math.min(p.planet.pop, infDiff / 2 + propOfPop / 2);
                     }
                     else
                         p.safetyMargin = (p.planetInfluence - p.otherInfluence);
@@ -3125,8 +3136,7 @@
                 this.checkAndSend(from.planetId, to.planetId, percent);
             }
 
-            this.calcNeededToAttack = function (target, r)
-            {
+            this.calcNeededToAttack = function (target, r) {
                 var result = (target.oppositionByTime[r] / 2 + (target.otherInfluence - target.aiInfluence) / 2 + target.planetMaxByTime[r]) / 2;
                 result = Math.max(target.planetActualByTime[r] + (target.otherInfluence - target.aiInfluence) * 1.5, result);
                 return result;
@@ -3464,10 +3474,10 @@
                             //var likelymight = this.might[this.ownerId] / (numplanets + 4);
                             //var likelydefmight = (this.might[p.owner] + this.might[p.effectiveOwner]) / 20;
                             goodTarget1 = (p.aiInfluence) / (p.planetInfluence + (p.otherInfluence - p.aiInfluence) / 2 + 5 / p.desirability);
-                            goodTarget2 = (p.aiMaxByTime[2]) / (p.planetMaxByTime[2] / 2 + p.oppositionByTime[2] /2 + 3);
+                            goodTarget2 = (p.aiMaxByTime[2]) / (p.planetMaxByTime[2] / 2 + p.oppositionByTime[2] / 2 + 3);
                             goodTarget3 = (p.aiMaxByTime[1]) / (p.planetActualByTime[1] + p.oppositionByTime[1] / 2 + 3);
                             goodTarget4 = (p.aiMaxByTime[0]) / (p.planetMaxByTime[0] + p.oppositionByTime[0] / 2 + 4 / p.desirability);
-                            p.goodTarget = (goodTarget1 + goodTarget2  + goodTarget3  + goodTarget4 * 2) / 4
+                            p.goodTarget = (goodTarget1 + goodTarget2 + goodTarget3 + goodTarget4 * 2) / 4
                             //+ Math.max(goodTarget1, goodTarget2, goodTarget3) / 2;
                             if (p.goodTarget > 0) {
                                 p.goodTarget *= Math.min(2, (-.5 + this.attackPref[p.effectiveOwner] * 1.5));
@@ -3475,7 +3485,7 @@
                                     p.goodTarget *= this.attackPref[p.effectiveOwner] / 3;
                                 }
                                 if (this.attackPref[p.effectiveOwner] < 4) {
-                                    p.goodTarget *= (.2 + this.attackPref[p.effectiveOwner]*.2);
+                                    p.goodTarget *= (.2 + this.attackPref[p.effectiveOwner] * .2);
                                 }
                                 p.goodTarget *= p.goodTarget;
                                 //this.log(p.goodTarget);
@@ -3579,7 +3589,7 @@
                     }
                     if (this.myPlanets.length) {
 
-                        var mostNeed = this.myPlanets.concat().sort(function (a, b) { return a.urgency  > b.urgency  ? -1 : 1 });
+                        var mostNeed = this.myPlanets.concat().sort(function (a, b) { return a.urgency > b.urgency ? -1 : 1 });
 
                         var r;
                         var sendAmt;
@@ -3720,7 +3730,7 @@
 
                                                 sendAmt = this.planetData[dp].sendable;
 
-                                                
+
 
                                                 if (r < 3) {
 
@@ -3733,10 +3743,10 @@
                                                 var needed = this.calcNeededToAttack(target, rangeStillDefensible);
 
 
-                                                
+
 
                                                 if (sendEffect > needed / 5) {
-                                                    
+
                                                     while (attackByTime[rangeStillDefensible] + sendEffect > needed) {
                                                         // have we sent too much?
                                                         if (attackByTime[rangeStillDefensible] + sendEffect > target.planetMaxByTime[rangeStillDefensible] * 1.1)
@@ -3748,7 +3758,7 @@
                                                             this.log('predict taking at least once', 2);
                                                             hasTakenAtLeastOnce = true;
                                                         }
-                                                        
+
 
                                                         //this.log('actual send amt:' + sendAmt + ' | );
 
@@ -3771,7 +3781,7 @@
                                                         this.log('range still defensible: ' + rangeStillDefensible);
                                                         this.log('needed: ' + needed);
                                                         //this.log('safety send amt:' + sendAmt, 2);
-                                                        
+
                                                         this.log('total sending so far: ' + (attackByTime[rangeStillDefensible] + sendEffect));
                                                     }
 

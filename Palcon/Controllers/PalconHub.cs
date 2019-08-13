@@ -64,7 +64,7 @@ namespace Palcon.Controllers
                 }
                 else
                 {
-                    SendChat(game.GameId, player.PlayerId, null, "[has disconnected]");
+                    SendChat(game.GameId, null, player.PlayerId, null, "[has disconnected]");
                     player.IsDead = true;
                 }
 
@@ -162,7 +162,7 @@ namespace Palcon.Controllers
             }
         }
 
-        public void SendChat(int gameId, int? pid, int? toPid, string msg)
+        public void SendChat(int gameId, int? colorId, int? pid, int? toPid, string msg)
         {
             var game = Game.Games.Where(x => x.GameId == gameId).Single();
             Player player;
@@ -190,7 +190,7 @@ namespace Palcon.Controllers
 
             foreach (var p in game.LiveHumanPlayers())
             {
-                Clients.Client(p.ConnectionId).receiveChat(player.PlayerId, string.Format(msg, toname));
+                Clients.Client(p.ConnectionId).receiveChat(colorId, player.PlayerId, string.Format(msg, toname));
             }
         }
 
