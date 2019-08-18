@@ -2413,14 +2413,13 @@
         }
 
         function playSound(sound, x, rate, volume) {
-
             var pan = 0;
             if (xbound) {
                 pan = x / xbound * 2 - 1;
             }
             if (!rate)
                 rate = 1;
-            if (!volume)
+            if (!volume || volume == NaN || volume > 1)
                 volume = 1;
             var v = volume * global_volume;
             sound._volume = v;
@@ -2461,9 +2460,7 @@
             //sound calcs
 
 
-            var volume = Math.sqrt(landPop + 10) / 10 - .3;
-            if (volume > 1)
-                volume = 1;
+
             var spotx = f.shape.x + Math.cos(Math.atan(f.dy / f.dx)) * Math.sign(f.dx) * f.distMidToFront * f.shape.scaleX / globalscale;
             var spoty = f.shape.y + Math.sin(Math.atan(f.dy / f.dx)) * Math.sign(f.dx) * f.distMidToFront * f.shape.scaleX / globalscale;
 
@@ -2481,7 +2478,9 @@
                 var damage = landPop * attackRatio;
 
                 if (f.destination.pop >= damage) {
-
+                    var volume = Math.sqrt(landPop + 10) / 10 - .3;
+                    if (volume > 1)
+                        volume = 1;
                     playSound(sound_attack, p.x, rate / 2 + .25, volume * .35);
 
 
@@ -2556,6 +2555,9 @@
                 var rate = 3 - 10 * landPop / (f.destination.pop + 10);
                 if (rate < .5)
                     rate = .5;
+                var volume = Math.sqrt(landPop + 10) / 10 - .3;
+                if (volume > 1)
+                    volume = 1;
                 playSound(sound_land, p.x, rate, volume);
                 showExplosion(spotx, spoty, f.shape.scaleX / globalscale, f.owner, 1);
                 f.destination.pop += landPop;
