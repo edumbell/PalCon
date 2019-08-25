@@ -10,14 +10,15 @@ namespace Palcon.Controllers
     public class PalconHub : Hub
     {
         public static object _lock = new object();
-        public void JoinGame()
+        public void JoinGame(int gameModeInt)
         {
+            var gameMode = (GameMode)gameModeInt;
             lock (_lock)
             {
-                var toJoin = Game.Games.Where(x => !x.Started).FirstOrDefault();
+                var toJoin = Game.Games.Where(x => !x.Started && x.GameMode == gameMode).FirstOrDefault();
                 if (toJoin == null)
                 {
-                    toJoin = new Game();
+                    toJoin = new Game(gameMode);
 
                     if (Game.Games.Any())
                     {

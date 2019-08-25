@@ -272,7 +272,7 @@
 
 
         // SIGNALR
-        const gameMode = 1; // GameMode.Cowards
+        const gameMode = 0; // GameMode.Classic
         var myHub;
         var test;
         var keys = [];
@@ -286,7 +286,6 @@
         var maxcooldown = 80;
         var maxBombTime = 3 * 2 * 60;
         var startDelay = 1850;
-
         var localPlayerIds = [];
         var lobbyColours = [@for (var c = 1; c < Model.Count(); c++)
         {
@@ -298,16 +297,6 @@
         keyconst.z = [90];
         keyconst.x = [88];
         keyconst.enter = [13];
-        keyconst.pause = [80];
-
-        /**************************/
-        /***xxx**************xxx***/   doDevOverrides();
-        /*********________*********/
-        /*******************/
-
-        function doDevOverrides() {
-            startDelay = 0;
-        }
 
         function getRandomIntInclusive(min, max) {
             min = Math.ceil(min);
@@ -433,7 +422,7 @@
             myHub.client.receiveChat = function (cid, pid, msg) {
                 var col;
                 if (cid)
-                    col = lobbyColours[cid - 1];
+                    col = lobbyColours[cid-1];
                 else
                     col = ownercolours[pid];
                 if (aiPlayersHostedLocally.length > 0) {
@@ -1484,9 +1473,7 @@
 
         }
 
-
-        function Fleet(pop, startPlanet, destination, owner, isPod) {
-            this.isPod = isPod;
+        function Fleet(pop, startPlanet, destination, owner) {
             this.distToGo = 9999;
             this.pop = pop;
             this.owner = owner;
@@ -1501,14 +1488,9 @@
             }
             this.dx = globalscale * Math.cos(angle) * fleetspeed / ticksPerTurn;
             this.dy = globalscale * Math.sin(angle) * fleetspeed / ticksPerTurn;
-            if (this.isPod) {
-                this.shape = podShape(Math.sqrt(pop) * 4, startPlanet.shape.x, startPlanet.shape.y, owner, angle);
-                this.distMidToFront = 1;
-            }
-            else {
-                this.shape = fleetShape(Math.sqrt(pop), startPlanet.shape.x, startPlanet.shape.y, owner, angle);
-                this.distMidToFront = 1.5;
-            }
+
+            this.shape = fleetShape(Math.sqrt(pop), startPlanet.shape.x, startPlanet.shape.y, owner, angle);
+            this.distMidToFront = 1.5;
             this.path = fleetPath(startPlanet, destination, owner);
             this.size = Math.sqrt(pop);
             this.popLandPerTurn = Math.round(this.pop / 10) + 1;
@@ -1523,8 +1505,6 @@
                 this.size = Math.sqrt(pop);
                 var tween = createjs.Tween.get(this.shape, { useTicks: true });
                 this.gameScale = globalscale * Math.sqrt(this.pop) * .7 + 1.5;
-                if (this.isPod)
-                    this.gameScale *= 1.7;
                 time = 0;
                 if (!immediate)
                     time = ticksPerTurn;
@@ -1634,7 +1614,7 @@
 
         var planets = [];
         var fleets = [];
-        var distanceMatrix = []; // for AI's and shortcut for fleeing calcs
+        var distanceMatrix = []; // for AI's
         var distanceMatrixSumInverts = [];
         var stage;
         var globalscale;
@@ -1909,100 +1889,6 @@
             return container;
         }
 
-
-
-        function podShape(size, x, y, owner, angle) {
-            var col = ownercolours[owner];
-            var container = new createjs.Container();
-            var shape = new createjs.Shape();
-            var shapeNoShadow = new createjs.Shape();
-            container.addChild(shape);
-            container.addChild(shapeNoShadow);
-
-            /// outer ring
-            var rimThickness = .5;
-            shape.graphics.setStrokeStyle(.7, 'butt', 'round', 0, true);
-            shape.graphics.beginStroke(col);
-            shape.graphics.beginRadialGradientFill([col, "#000"], [0, 1], -.5, .5, 2, .2, 0, 0)
-                .drawEllipse(-1, -1, 2, 2);
-            shape.graphics.endStroke();
-            shape.graphics.endFill();
-
-            //shapeNoShadow.graphics.beginFill("#000")
-            //    .drawEllipse(-1 + rimThickness, -1 + rimThickness, 2 - rimThickness * 2, 2 - rimThickness * 2)
-            //    .endFill();
-
-            // inner blob
-            shapeNoShadow.graphics.beginRadialGradientFill(["#000", col], [0, 1], -2, 0, 5, -1, 0, 0)
-                .drawEllipse(-.5, -.5, 1, 1);
-            shapeNoShadow.graphics.endStroke();
-            shapeNoShadow.graphics.endFill();
-
-            shape.shadow = new createjs.Shadow("#000000", 3 + size * globalscale / 10, 3 + size * globalscale / 10, globalscale * (10 + size));
-
-            // windows
-            shapeNoShadow.graphics.beginLinearGradientFill([col, "#fff"], [0, 1], -2, 3, 2, 2)
-                .setStrokeStyle(.1, 'butt', 'round', 0, true)
-                .beginStroke("#000")
-                .drawEllipse(-.25, .3, .5, .3)
-                .drawEllipse(.3, -.25, .3, .5)
-                .endStroke()
-                .endFill();
-            container.regX = 0;
-            container.regY = .2; // wobble
-            container.x = x;
-            container.y = y;
-            container.scaleX = 2;
-            container.scaleY = 2;
-            container.rotation = angle * 180 / Math.PI - 90;
-            if (container.rotation < 0)
-                container.rotation += 360;
-            return container;
-        }
-
-
-
-        function podShape2(size, x, y, owner, angle) {
-            var col = ownercolours[owner];
-            var container = new createjs.Container();
-            var shape = new createjs.Shape();
-            var shapeNoShadow = new createjs.Shape();
-            container.addChild(shape);
-            container.addChild(shapeNoShadow);
-
-            /// hull
-            var rimThickness = 2;
-            shape.graphics.setStrokeStyle(rimThickness, 'butt', 'round', 0, true);
-            shape.graphics.beginStroke(col);
-            shape.graphics.beginRadialGradientFill([col, "#000"], [0, 1], -2.5, 0, 5, -5, 1, 1)
-                .drawEllipse(-1.25, -1.25, 2.5, 2.5);
-            shape.graphics.endStroke();
-            shape.graphics.endFill();
-
-            shape.shadow = new createjs.Shadow("#000000", 3 + size * globalscale / 10, 3 + size * globalscale / 10, globalscale * (10 + size));
-
-            // windows
-            shapeNoShadow.graphics.beginLinearGradientFill([col, "#fff"], [0, 1], -2, 3, 2, 2)
-                .setStrokeStyle(.1, 'butt', 'round', 0, true)
-                .beginStroke("#000")
-                .drawEllipse(-.25, .4, .5, .3)
-                .drawEllipse(.4, -.25, .3, .5)
-                .drawEllipse(-.25, -.4, .5, -.3)
-                .endStroke()
-                .endFill();
-            container.regX = 0;
-            container.regY = .2; // wobble
-            container.x = x;
-            container.y = y;
-            container.scaleX = 2;
-            container.scaleY = 2;
-            container.rotation = angle * 180 / Math.PI - 90;
-            if (container.rotation < 0)
-                container.rotation += 360;
-            return container;
-        }
-
-        // surface planet2 to surface planet2
         function drawSurfacePath(planet1, planet2, shape) {
             var x = planet1.x;
             var y = planet1.y;
@@ -2404,7 +2290,7 @@
                     c--;
                 }, idx * startDelay + startDelay);
             }
-            setTimeout(function () { _paused = false; }, 4 * startDelay + 500);
+            setTimeout(function () { _paused = false; }, 3 * startDelay + startDelay + 500);
         }
 
         function startTicker() {
@@ -2446,32 +2332,7 @@
             }
         }
 
-        function attackToDefenseRatio(p) {
-            const radiusToCheck = 50;
-            var attack = 0;
-            var defense = p.pop / attackRatio;
-            for (var idx in fleets) {
-                var fleet = fleets[idx];
-                if (fleet.destination === p
-                     && fleet.distToGo < radiusToCheck) {
-                    var weightedDist = Math.max(0, fleet.distToGo - radiusToCheck / 2) * 2 / radiusToCheck;
-                    var weightedPop = fleet.pop * (1 - weightedDist);
-                    if (fleet.owner == p.owner)
-                        defense += weightedPop;
-                    else
-                        attack += weightedPop;
-                }
-            }
-            if (defense <= 0)
-                return 999;
-            return attack / defense;
-        }
-
-        function fleetFlee(f) {
-
-        }
-
-        function moveFleet(f) {
+        function moveFleet(f, idx) {
             if (f != null) {
                 f.distToGo = Math.sqrt(Math.pow((f.shape.x - f.destination.shape.x), 2) + Math.pow((f.shape.y - f.destination.shape.y), 2))
                  - f.destination.radiusUnscaled * globalscale
@@ -2491,15 +2352,9 @@
 
                 }
                 else {
-                    // NORMAL FLIGHT
+
                     f.shape.x += f.dx;
                     f.shape.y += f.dy;
-
-                    if (f.isPod) {
-                        f.shape.rotation += 13;
-                        if (f.shape.rotation > 360)
-                            f.shape.rotation -= 360;
-                    }
 
                     //createjs.Tween.get(f.shape)
                     //.to({ x: f.shape.x + f.dx, y: f.shape.y + f.dy }, msPerTurn / ticksPerTurn);
@@ -2594,41 +2449,6 @@
             layers.planets.addChild(p.label);
         }
 
-        function closestFriendly(startPlanet) {
-            var result = null;
-            for (var i in distanceMatrix[startPlanet.idx]) {
-                if (planets[startPlanet.idx, i].owner === startPlanet.owner);
-                return planets[startPlanet.idx, i];
-            }
-            // nothing very close :( check allll planets
-            var minDist = 9999;
-            for (var i in planets) {
-                if (planets[i].owner === startPlanet.owner
-                    && planets[i] !== startPlanet) {
-                    var p = planets[i];
-                    var dist = Math.sqrt(Math.pow(p.shape.x - startPlanet.shape.x, 2) + Math.pow(p.shape.y - startPlanet.shape.y, 2))
-                        - p.radius;
-                    if (dist < minDist) {
-                        result = p;
-                        minDist = dist;
-                    }
-                }
-                var p = planets[i]
-            }
-            return result;
-        }
-
-        function planetEvacuate(p) {
-            toPlanet = closestFriendly(p);
-            if (toPlanet) {
-                if (toPlanet) {
-                    var f = new Fleet(p.pop, p, toPlanet, p.owner, true);
-                    fleets.push(f);
-                    p.pop = 0;
-                }
-            }
-        }
-
         function land(f) {
 
             var deleteFleet;
@@ -2639,110 +2459,98 @@
 
             //sound calcs
 
+
+
             var spotx = f.shape.x + Math.cos(Math.atan(f.dy / f.dx)) * Math.sign(f.dx) * f.distMidToFront * f.shape.scaleX / globalscale;
             var spoty = f.shape.y + Math.sin(Math.atan(f.dy / f.dx)) * Math.sign(f.dx) * f.distMidToFront * f.shape.scaleX / globalscale;
 
             if (f.owner != f.destination.owner) {
-                // POD NOT-ATTACK
-                if (f.isPod)
-                {
-                    showExplosion(spotx, spoty, f.shape.scaleX / globalscale * 2, f.owner, 3);
-                    doDeleteFleet(f);
-                }
-                else
-                {
-                    // ATTACK
-                    landPop = Math.min(f.popAttackPerTurn, f.pop);
-                    var rate = 3 - 10 * landPop / (f.destination.pop + 10);
-                    if (rate < .5)
-                        rate = .5;
-                    if (rate > 3)
-                        rate = 3;
+                // ATTACK
+                landPop = Math.min(f.popAttackPerTurn, f.pop);
+                var rate = 3 - 10 * landPop / (f.destination.pop + 10);
+                if (rate < .5)
+                    rate = .5;
+                if (rate > 3)
+                    rate = 3;
 
-                    showExplosion(spotx, spoty, f.shape.scaleX / globalscale, f.owner, 1);
+                showExplosion(spotx, spoty, f.shape.scaleX / globalscale, f.owner, 1);
 
-                    var damage = landPop * attackRatio;
+                var damage = landPop * attackRatio;
 
-                    if (f.destination.pop >= damage) {
-                        var volume = Math.sqrt(landPop + 10) / 10 - .3;
-                        if (volume > 1)
-                            volume = 1;
-                        playSound(sound_attack, p.x, rate / 2 + .25, volume * .35);
+                if (f.destination.pop >= damage) {
+                    var volume = Math.sqrt(landPop + 10) / 10 - .3;
+                    if (volume > 1)
+                        volume = 1;
+                    playSound(sound_attack, p.x, rate / 2 + .25, volume * .35);
 
 
 
-                        f.destination.pop -= damage;
-                        f.pop -= landPop;
+                    f.destination.pop -= damage;
+                    f.pop -= landPop;
 
-                        if (f.pop <= 0) {
-                            deleteFleet = true;
-                        }
-                        else {
-                            f.redrawScale();
-                        }
-
-                        if (attackToDefenseRatio(f.destination) > 2) {
-                            planetEvacuate(f.destination);
-                        }
+                    if (f.pop <= 0) {
+                        deleteFleet = true;
                     }
                     else {
+                        f.redrawScale();
+                    }
+                }
+                else {
 
-                        // CAPTURE PLANET AND TRANSFER REMAINING SHIPS
-                        fleetLoss = f.destination.pop / attackRatio;
-                        f.destination.pop = f.pop - fleetLoss;
+                    // CAPTURE PLANET AND TRANSFER REMAINING SHIPS
+                    fleetLoss = f.destination.pop / attackRatio;
+                    f.destination.pop = f.pop - fleetLoss;
 
-                        var ex = p.x;
-                        var ey = p.y;
-                        var er = 30 + p.radiusUnscaled;
+                    var ex = p.x;
+                    var ey = p.y;
+                    var er = 30 + p.radiusUnscaled;
 
-                        showExplosion(ex, ey, er, p.owner, 5, true);
+                    showExplosion(ex, ey, er, p.owner, 5, true);
 
-                        var fowner = f.owner;
-                        setTimeout(function () {
-                            showExplosion(ex, ey, er * .7, fowner, 2, true);
-                        }, 500);
-                        for (var idx in highlightedPlanets) {
-                            if (highlightedPlanets[idx] == p) {
-                                unHighlightPlanet(p);
+                    var fowner = f.owner;
+                    setTimeout(function () {
+                        showExplosion(ex, ey, er * .7, fowner, 2, true);
+                    }, 500);
+                    for (var idx in highlightedPlanets) {
+                        if (highlightedPlanets[idx] == p) {
+                            unHighlightPlanet(p);
+                        }
+                    }
+                    onHighlightChange();
+                    p.owner = f.owner;
+                    p.cooldown = 0.1;
+                    onPlanetChangeOwner(p);
+
+                    playSound(sound_conquer, p.x, 2 - p.growth * .25, .06);
+                    deleteFleet = true;
+                    if (p.growth == 4) {
+                        var bigPlanetsStillNeeded = 0;
+                        var pp;
+                        for (var idx in planets) {
+                            pp = planets[idx];
+                            if (pp.growth == 4 && pp.owner != f.owner) {
+                                bigPlanetsStillNeeded++;
                             }
                         }
-                        onHighlightChange();
-                        p.owner = f.owner;
-                        p.cooldown = 0.1;
-                        onPlanetChangeOwner(p);
-
-                        playSound(sound_conquer, p.x, 2 - p.growth * .25, .06);
-                        deleteFleet = true;
-                        if (p.growth == 4) {
-                            var bigPlanetsStillNeeded = 0;
-                            var pp;
-                            for (var idx in planets) {
-                                pp = planets[idx];
-                                if (pp.growth == 4 && pp.owner != f.owner) {
-                                    bigPlanetsStillNeeded++;
-                                }
+                        if (localPlayerIds.indexOf(f.owner) > -1) {
+                            if (bigPlanetsStillNeeded == 1) {
+                                sendFormattedChat(f.owner, f.owner, '[{0} ONLY NEEDS ONE MORE BASE PLANET TO WIN!]');
                             }
-                            if (localPlayerIds.indexOf(f.owner) > -1) {
-                                if (bigPlanetsStillNeeded == 1) {
-                                    sendFormattedChat(f.owner, f.owner, '[{0} ONLY NEEDS ONE MORE BASE PLANET TO WIN!]');
-                                }
-                                else if (bigPlanetsStillNeeded == 0) {
-                                    sendFormattedChat(f.owner, f.owner, '[{0} HAS WON!]');
-                                    queuedCommands.push(
-                                            {
-                                                owner: f.owner,
-                                                type: const_won
-                                            }
-                                       );
-                                }
+                            else if (bigPlanetsStillNeeded == 0) {
+                                sendFormattedChat(f.owner, f.owner, '[{0} HAS WON!]');
+                                queuedCommands.push(
+                                        {
+                                            owner: f.owner,
+                                            type: const_won
+                                        }
+                                   );
                             }
                         }
                     }
                 }
 
-            } // END ATTACK
+            }
             else {
-                // REINFORCE
                 landPop = Math.min(f.popLandPerTurn, f.pop);
                 var rate = 3 - 10 * landPop / (f.destination.pop + 10);
                 if (rate < .5)
@@ -2940,7 +2748,7 @@
             }
             else {
                 for (var f in fleets) {
-                    moveFleet(fleets[f]);
+                    moveFleet(fleets[f], f);
                 }
                 for (var p in planets) {
                     updatePlanet(planets[p]);

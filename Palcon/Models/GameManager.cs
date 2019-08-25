@@ -9,6 +9,11 @@ namespace Palcon.Models
     {
 
     }
+    public enum GameMode
+    {
+        Cowards = 0,
+        Classic = 1
+    }
     public class Game
     {
         public static List<Game> Games = new List<Game>();
@@ -21,13 +26,16 @@ namespace Palcon.Models
         public static int[] ColourIds = { 0,1,2,3,4,5,6};
 
         public int GameId { get; set; }
+        public GameMode GameMode { get; set; }
         public List<Player> Players { get; set; }
         public bool Started { get; set; }
         public int msPerTurn = 500;
         public int turnId = 0;
         public DateTime TimeLastTurnEnd { get; set; }
-        public Game()
+
+        public Game(GameMode gameMode)
         {
+            GameMode = gameMode;
             Players = new List<Player>();
             TimeLastTurnEnd = DateTime.Now;
         }
