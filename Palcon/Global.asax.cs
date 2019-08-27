@@ -12,9 +12,12 @@ namespace Palcon
     {
         protected void Application_Start()
         {
+            var routes = RouteTable.Routes;
+            routes.MapRoute("home", "{action}", new { controller = "Home" });
+
             AreaRegistration.RegisterAllAreas();
             FilterConfig.RegisterGlobalFilters(GlobalFilters.Filters);
-            RouteConfig.RegisterRoutes(RouteTable.Routes);
+            RouteConfig.RegisterRoutes(routes);
             BundleConfig.RegisterBundles(BundleTable.Bundles);
         }
     }
