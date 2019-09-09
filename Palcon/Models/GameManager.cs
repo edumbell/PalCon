@@ -32,6 +32,7 @@ namespace Palcon.Models
         public int msPerTurn = 500;
         public int turnId = 0;
         public DateTime TimeLastTurnEnd { get; set; }
+        public bool Paused { get; set; }
 
         public Game(GameMode gameMode)
         {

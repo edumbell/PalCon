@@ -57,7 +57,6 @@ namespace Palcon.Controllers
                 if (!game.Started)
                 {
                     game.Players.Remove(player);
-
                     foreach (var p in game.HumanPlayers())
                     {
                         Clients.Client(p.ConnectionId).playerJoined(game.Players.Count());
@@ -68,7 +67,6 @@ namespace Palcon.Controllers
                     SendChat(game.GameId, null, player.PlayerId, null, "[has disconnected]");
                     player.IsDead = true;
                 }
-
             }
             return base.OnDisconnected(stopCalled);
         }
@@ -78,7 +76,6 @@ namespace Palcon.Controllers
             var game = Game.Games.Where(x => x.GameId == gameId).Single();
             var p = game.HumanPlayers().Where(x => x.ConnectionId == Context.ConnectionId).Single();
             p.IsReadyToStart = true;
-
         }
 
         public void SendSettings(int gameId, string settings)
@@ -187,8 +184,6 @@ namespace Palcon.Controllers
                 toname = "<span class='chatname' style=\"border-color:" + player2.Colour + "\">" + player2.Name + "</span>";
                 msg = "<span class='aichat'>" + msg + "</span>";
             }
-            //var player = game.pla().Where(x => x.PlayerId == pid).Single();
-
             foreach (var p in game.LiveHumanPlayers())
             {
                 Clients.Client(p.ConnectionId).receiveChat(colorId, player.PlayerId, string.Format(msg, toname));
@@ -202,19 +197,50 @@ namespace Palcon.Controllers
                 return;
             var player = game.HumanPlayers().Where(x => x.ConnectionId == Context.ConnectionId).Single();
             player.CurrentCommand = json;
-            var allSent = game.AllCommandsIn();
-            if (allSent)
+            if (!game.Paused)
             {
-                var turnId = game.turnId;
-                lock (game)
+                var allSent = game.AllCommandsIn();
+                if (allSent)
                 {
-                    if (turnId == game.turnId)
-                        EndTurn(game);
+                    // de-duplicate
+                    var turnId = game.turnId;
+                    lock (game)
+                    {
+                        if (turnId == game.turnId)
+                            EndTurn(game);
+                    }
                 }
+                else
+                {
+                    var schedule = System.Threading.Tasks.Task.Run(() => { ForceEndTurnIfTimeout(game, game.turnId); });
+                }
+            }
+        }
+
+        public void Pause(int gameId, bool state)
+        {
+            var game = Game.Games.Where(x => x.GameId == gameId).FirstOrDefault();
+            if (game == null)
+                return;
+            game.Paused = state;
+            if (game.Paused)
+            {
+                var player = game.HumanPlayers().Where(x => x.ConnectionId == Context.ConnectionId).Single();
+                SendChat(game.GameId, null, player.PlayerId, null, "[paused]");
             }
             else
             {
-                var schedule = System.Threading.Tasks.Task.Run(() => { ForceEndTurnIfTimeout(game, game.turnId); });
+                var allSent = game.AllCommandsIn();
+                if (allSent)
+                {
+                    // de-duplicate
+                    var turnId = game.turnId;
+                    lock (game)
+                    {
+                        if (turnId == game.turnId)
+                            EndTurn(game);
+                    }
+                }
             }
         }
 
@@ -224,7 +250,7 @@ namespace Palcon.Controllers
             await System.Threading.Tasks.Task.Delay(2500);
             lock (game)
             {
-                if (game.TimeLastTurnEnd.AddMilliseconds(2500) < DateTime.Now && game.turnId == turnId)
+                if (!game.Paused && game.TimeLastTurnEnd.AddMilliseconds(2500) < DateTime.Now && game.turnId == turnId)
                 {
                     EndTurn(game);
                 }

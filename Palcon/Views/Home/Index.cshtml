@@ -778,8 +778,19 @@
             myHub.server.sendChat(gameId, null, ownerIndex, null, "[has left to start a new game]");
             window.location.reload();
         }
+
         var _paused;
         function togglePause() {
+            if (_paused)
+            {
+                myHub.server.pause(gameId, false);
+                $("#pause").html("pause");
+            }
+            else
+            {
+                myHub.server.pause(gameId, true);
+                $("#pause").html("unpause");
+            }
             _paused = !_paused;
         }
 
@@ -2594,16 +2605,13 @@
             layers.planets.addChild(p.label);
         }
 
-        function closestFriendly(startPlanet) {
+        function closestFriendlyBig(startPlanet) {
             var result = null;
-            for (var i in distanceMatrix[startPlanet.idx]) {
-                if (planets[startPlanet.idx, i].owner === startPlanet.owner);
-                return planets[startPlanet.idx, i];
-            }
-            // nothing very close :( check allll planets
+
             var minDist = 9999;
             for (var i in planets) {
                 if (planets[i].owner === startPlanet.owner
+                    && planets[i].growth > 3
                     && planets[i] !== startPlanet) {
                     var p = planets[i];
                     var dist = Math.sqrt(Math.pow(p.shape.x - startPlanet.shape.x, 2) + Math.pow(p.shape.y - startPlanet.shape.y, 2))
@@ -2619,12 +2627,14 @@
         }
 
         function planetEvacuate(p) {
-            toPlanet = closestFriendly(p);
-            if (toPlanet) {
+            if (p.owner > 0) {
+                toPlanet = closestFriendlyBig(p);
                 if (toPlanet) {
-                    var f = new Fleet(p.pop, p, toPlanet, p.owner, true);
-                    fleets.push(f);
-                    p.pop = 0;
+                    if (toPlanet) {
+                        var f = new Fleet(p.pop, p, toPlanet, p.owner, true);
+                        fleets.push(f);
+                        p.pop = 0;
+                    }
                 }
             }
         }
@@ -2646,7 +2656,7 @@
                 // POD NOT-ATTACK
                 if (f.isPod)
                 {
-                    showExplosion(spotx, spoty, f.shape.scaleX / globalscale * 2, f.owner, 3);
+                    showExplosion(spotx, spoty, f.shape.scaleX / globalscale / 2, f.owner, 1, false);
                     doDeleteFleet(f);
                 }
                 else
@@ -4309,7 +4319,7 @@
         <div id="controls" class="clearfix">
             <button id="newgame" onclick="newGame()">Restart</button>
             <button id="surrender" onclick="sendSurrender()">Surrender</button>
-            <button id="surrender" onclick="togglePause()" style="display:none">Pause</button>
+            <button id="pause" onclick="togglePause()">Pause</button>
         </div>
         <br />
         <div id="chat_scroller" style="height:50vh">
