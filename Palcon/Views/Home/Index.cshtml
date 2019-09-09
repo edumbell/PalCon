@@ -781,13 +781,11 @@
 
         var _paused;
         function togglePause() {
-            if (_paused)
-            {
+            if (_paused) {
                 myHub.server.pause(gameId, false);
                 $("#pause").html("pause");
             }
-            else
-            {
+            else {
                 myHub.server.pause(gameId, true);
                 $("#pause").html("unpause");
             }
@@ -2654,13 +2652,11 @@
 
             if (f.owner != f.destination.owner) {
                 // POD NOT-ATTACK
-                if (f.isPod)
-                {
-                    showExplosion(spotx, spoty, f.shape.scaleX / globalscale / 2, f.owner, 1, false);
+                if (f.isPod) {
+                    showExplosion(spotx, spoty, f.shape.scaleX / globalscale * 2, f.owner, 3);
                     doDeleteFleet(f);
                 }
-                else
-                {
+                else {
                     // ATTACK
                     landPop = Math.min(f.popAttackPerTurn, f.pop);
                     var rate = 3 - 10 * landPop / (f.destination.pop + 10);
@@ -2761,7 +2757,7 @@
                 if (volume > 1)
                     volume = 1;
                 playSound(sound_land, p.x, rate, volume);
-                showExplosion(spotx, spoty, f.shape.scaleX / globalscale, f.owner, 1);
+                showExplosion(spotx, spoty, f.shape.scaleX / globalscale /3, f.owner, .5, false);
                 f.destination.pop += landPop;
                 f.pop -= landPop
                 f.redrawScale();
