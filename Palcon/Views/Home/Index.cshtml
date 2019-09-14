@@ -339,9 +339,9 @@
             return aiPlayersHostedLocally[aid];
         }
         function getThreatMsg(hate) {
-            if (hate < 2)
+            if (hate < 1.5)
                 return 'Stay away from me {0}';
-            if (hate < 3)
+            if (hate < 2.5)
                 return '{0} you are harshing my buzz';
             if (hate < 4)
                 return 'Have at thee, {0}!';
@@ -2332,19 +2332,13 @@
                 }
             }, false);
 
-
             $("body").css({ overflow: 'hidden' });
-            //var planetsData = generateGameBoard();
-
-
-
-
+            
             // code here.
             stage = new createjs.Stage("PalCanvas");
             resize();
             stage.enableMouseOver(10);
             stage.update();
-
 
             stage.addChild(bg());
             layers.planets = new createjs.Container();
@@ -2363,14 +2357,6 @@
             //planets.push(p);
             //p = new Planet(4, 510, 210, 50, 0);
             //planets.push(p);
-
-            //var f = new Fleet(15, planets[2], planets[1], 0);
-            //fleets.push(f);
-
-            //f = new Fleet(3, planets[1], planets[0], 1);
-            //fleets.push(f);
-            //f = new Fleet(80, planets[1], planets[2], 1);
-            //fleets.push(f);
 
             playSound(sound_warning, xbound / 2, .5, .4);
         }
@@ -3336,9 +3322,16 @@
                 this.checkAndSend(from.planetId, to.planetId, percent);
             }
 
-            this.calcNeededToAttack = function (target, r) {
-                var result = (target.oppositionByTime[r] / 2 + (target.otherInfluence - target.aiInfluence) / 2 + target.planetMaxByTime[r]) / 2;
-                result = Math.max(target.planetActualByTime[r] + (target.otherInfluence - target.aiInfluence) * 1.5, result);
+            this.calcNeededToAttack = function (target, r, hasFled) {
+                var planetActualByTime = target.planetActualByTime[r];
+                var planetMaxByTime = target.planetMaxByTime[r];
+                if (hasFled)
+                {
+                    planetActualByTime -= target.planetActualByTime[r] / 2;
+                    planetMaxByTime -= target.planetActualByTime[r] / 2;
+                }
+                var result = (target.oppositionByTime[r] / 2 + (target.otherInfluence - target.aiInfluence) / 2 + planetMaxByTime) / 2;
+                result = Math.max(planetActualByTime + (target.otherInfluence - target.aiInfluence) * 1.5, result);
                 return result;
             }
 
@@ -3701,11 +3694,16 @@
                                 p.goodTarget *= 2;
                             if (p.goodTarget > .5) {
                                 p.goodTarget *= (.8 + p.desirability / 3);
-
+                                var willFlee = 0;
                                 var riskPercent;
                                 attRatio = attackRatio;
                                 for (r = 0; r <= 3; r++) {
-
+                                    if (p.aiActualByTime[r] * attackRatio > p.planetMaxByTime[r] * 2) {
+                                        //alreadyFlee = true;
+                                    }
+                                    else if (p.aiMaxByTime[r] * attRatio > p.planetMaxByTime[r] * 2) {
+                                        p.goodTarget += 1; // +3 if very close
+                                    }
                                     if (p.aiActualByTime[r] * attackRatio > p.planetMaxByTime[r]) {
                                         alreadyWon = true;
                                     }
@@ -3713,6 +3711,7 @@
                                         if (alreadyWon)
                                             alreadyWon = false; // got it but lost it again
 
+                                            //willFlee = p.planetMaxByTime[r] / 2;
                                         if (p.aiMaxByTime[r] * attRatio > p.planetMaxByTime[r]) {
                                             if (r == 0) {
                                                 attRatio = 1 / attackRatio;
@@ -3756,10 +3755,7 @@
                                 }
                             }
 
-                            if (p.lastDidntAttack > turnId - 10) {
-                                p.goodTarget = p.goodTarget / 2;
-                            }
-                            else if (p.lastDidntAttack > turnId - 5) {
+                            if (p.lastDidntAttack > turnId - 5) {
                                 p.goodTarget = p.goodTarget / 4;
                             }
                             else if (willWin && p.goodTarget > .5)
@@ -3800,6 +3796,7 @@
                             var supplyByTime = [0, 0, 0, 0];
                             //var suppliers = [[], [], [], []];
                             var rangeStillInDanger = 0;
+                            var selfFlee = false;
                             pick_defenders: {
                                 for (var idx in distanceMatrix[need.planetId]) {
                                     sendAmt = 0;
@@ -3881,12 +3878,12 @@
                                 var maxAnySendAmt = 0;
                                 var attRatio = attackRatio;
                                 var hasTakenAtLeastOnce = false;
-
                                 var costToTake = 0;
                                 var sendEffect;
                                 var newAttackRatio;
                                 var takeAnyway = false;
                                 var giveUp = false;
+                                var hasFled = false;
                                 //var recklessExtra = target.pop;
                                 choose_attackers: {
                                     for (var idx in distanceMatrix[target.planetId]) {
@@ -3940,7 +3937,7 @@
                                                 }
                                                 sendEffect = sendAmt * attRatio;
 
-                                                var needed = this.calcNeededToAttack(target, rangeStillDefensible);
+                                                var needed = this.calcNeededToAttack(target, rangeStillDefensible, hasFled);
 
 
 
@@ -3953,7 +3950,14 @@
                                                             newAttackRatio = 1 / attackRatio;
                                                         else if (attackByTime[rangeStillDefensible] + sendEffect > target.planetMaxByTime[rangeStillDefensible] * 1.05)
                                                             newAttackRatio = 1;
-
+                                                        if (
+                                                            target.owner > 0
+                                                            && attackByTime[rangeStillDefensible] + sendEffect > target.planetMaxByTime[rangeStillDefensible] * 2)
+                                                        {
+                                                            this.log('predict fleeing', 0);
+                                                            hasFled = true;
+                                                        }
+                                                            
                                                         if (!hasTakenAtLeastOnce) {
                                                             this.log('predict taking at least once', 2);
                                                             hasTakenAtLeastOnce = true;
@@ -3967,10 +3971,11 @@
 
                                                             attackByTime[rangeStillDefensible] = attackByTime[rangeStillDefensible - 1];
 
-                                                            needed = this.calcNeededToAttack(target, rangeStillDefensible);
+                                                            needed = this.calcNeededToAttack(target, rangeStillDefensible, hasFled);
 
-                                                            sendAmt = Math.min(sendAmt, (this.calcNeededToAttack(target, 3) - attackByTime[rangeStillDefensible] + 1) / attRatio);
+                                                            sendAmt = Math.min(sendAmt, (this.calcNeededToAttack(target, 3, hasFled) - attackByTime[rangeStillDefensible] + 1) / attRatio);
                                                             sendEffect = sendAmt * attRatio;
+
                                                         }
                                                         else {
 
@@ -4006,6 +4011,8 @@
                                                     neededRatio += 1 / (1 + this.attackPref[target.effectiveOwner] * .4);
 
                                                     costToTake = needed * .2 + target.planetActualByTime[rangeStillDefensible] * .8;
+                                                    if (hasFled)
+                                                        costToTake -= target.planetActualByTime[rangeStillDefensible] / 2;
                                                     this.log('costToTake ' + costToTake + '   sending: ' + attackByTime[rangeStillDefensible], 2);
                                                     if (attackByTime[rangeStillDefensible] > costToTake * neededRatio) {
                                                         this.log('might lose, but taking anyway!');
