@@ -1674,7 +1674,7 @@
         function planetShape(size, x, y, owner) {
 
             var shape = new createjs.Container();
-            var strokeWidth = 2 * globalscale;
+            var strokeWidth = 1 * globalscale;
             var isize = size * globalscale - strokeWidth;
             var col = ownercolours[owner];
             var circle = new createjs.Shape();
@@ -1686,6 +1686,7 @@
              isize * .3 + globalscale, isize * .3 + globalscale, isize * 1.2).drawCircle(0, 0, isize);
             circle.x = 0;
             circle.y = 0;
+            
             var plain = new createjs.Shape();
             plain.graphics.beginFill(col).drawCircle(0, 0, isize - strokeWidth + .5 * globalscale);
             plain.alpha = .1;
@@ -1701,7 +1702,7 @@
             shape.addChild(plain);
             shape.x = x;
             shape.y = y;
-
+            shape.shadow = new createjs.Shadow(col, 0, 0, 3.5 + size / 35);
             //circle.graphics.beginRadialGradientFill(["#000", ownercolours[owner], "#fff"], [0, 1,2], size/2, size/2, 0, size, size, size).drawCircle(size/2,size/2,size*.7);
             //circle.graphics.beginRadialGradientFill(["#000", ownercolours[owner]], [0, 1], size *.3, size *.3, size*.7, size/2, size/2, size*.8).drawCircle(size *.4, size *.4, size * .6);
             //            circle.graphics.beginRadialGradientFill(["#0f0", "#000"], [0, 1], 0-isize*.4, 0-isize*.4, isize, isize*.4, isize*.4,isize*1.4).drawCircle(0,0,size);
@@ -1868,7 +1869,7 @@
             shape.graphics.beginRadialGradientFill([col, "#000"], [0, 1],
             -5, 0, 7, -5.5, 0, 4).drawEllipse(0, 0, 2, 3);
 
-            shape.shadow = new createjs.Shadow("#000000", 3 + size * globalscale / 10, 3 + size * globalscale / 10, globalscale * (10 + size));
+            shape.shadow = new createjs.Shadow(col, 0 , 0, globalscale * (4 + size / 35));
 
             shapeNoShadow.graphics.beginLinearGradientFill([col, "#fff"], [1, 0], -1, 2.5, 1.5, 2.5)
             //shape.graphics.beginRadialGradientFill(["#000","#000", col,"#fff"], [0,.4,.8, 1],
@@ -1876,36 +1877,6 @@
             // 1.3, 2.5, .02).drawEllipse(.4, 1.5, 1.2, 1.7);
             .drawEllipse(.4, 1.2, 1.2, 1.2);
             //.drawEllipse(-10, -10, 20, 40);
-
-
-
-
-            //shape.graphics.beginLinearGradientFill([col,col, "#ffffff",col, "#000000"], [0,.3,.3,.45, 1], 4, -1, -2, 3);
-            //shape.graphics.moveTo(0, 1);
-            //shape.graphics.lineTo(0, 3);
-            //shape.graphics.lineTo(-2, 0);
-            //shape.graphics.lineTo(0, 1);
-
-            //shape.graphics.beginLinearGradientFill([col,col, "#ffffff", col, "#000000"], [0, 0,0, .35, 1], 2.5, .5, -3, 2);
-            //shape.graphics.moveTo(0, 1);
-            //shape.graphics.lineTo(0, 3);
-            //shape.graphics.lineTo(2, 0);
-            //shape.graphics.lineTo(0, 1);
-
-            //shape.graphics.beginLinearGradientFill([col,col, "#ffffff", col, "#000000"], [0, .1,.1, .25, 1], 3, 0, -2, 0);
-            //shape.graphics.moveTo(0, 1);
-            //shape.graphics.lineTo(2, 0);
-            //shape.graphics.lineTo(-2, 0);
-            //shape.graphics.lineTo(0, 1);
-
-            //shape.graphics.endFill();
-            //shape.graphics.setStrokeStyle(1 + .01 * scale, 'butt', 'round', 0, true);
-            //shape.graphics.beginStroke(col);
-            //shape.graphics.moveTo(2, 0);
-            //shape.graphics.lineTo(0, 3);
-            //shape.graphics.lineTo(-2, 0);
-            //shape.graphics.lineTo(2, 0).lineTo(0, 3);
-
 
             container.regX = 1;
             container.regY = 1.5;
@@ -1947,8 +1918,7 @@
             shapeNoShadow.graphics.endStroke();
             shapeNoShadow.graphics.endFill();
 
-            shape.shadow = new createjs.Shadow("#000000", 3 + size * globalscale / 10, 3 + size * globalscale / 10, globalscale * (10 + size));
-
+            shape.shadow = new createjs.Shadow(col, .5, .5, globalscale * (2 + size/10));
             // windows
             shapeNoShadow.graphics.beginLinearGradientFill([col, "#fff"], [0, 1], -2, 3, 2, 2)
                 .setStrokeStyle(.1, 'butt', 'round', 0, true)
@@ -1971,45 +1941,45 @@
 
 
 
-        function podShape2(size, x, y, owner, angle) {
-            var col = ownercolours[owner];
-            var container = new createjs.Container();
-            var shape = new createjs.Shape();
-            var shapeNoShadow = new createjs.Shape();
-            container.addChild(shape);
-            container.addChild(shapeNoShadow);
+        //function podShape2(size, x, y, owner, angle) {
+        //    var col = ownercolours[owner];
+        //    var container = new createjs.Container();
+        //    var shape = new createjs.Shape();
+        //    var shapeNoShadow = new createjs.Shape();
+        //    container.addChild(shape);
+        //    container.addChild(shapeNoShadow);
 
-            /// hull
-            var rimThickness = 2;
-            shape.graphics.setStrokeStyle(rimThickness, 'butt', 'round', 0, true);
-            shape.graphics.beginStroke(col);
-            shape.graphics.beginRadialGradientFill([col, "#000"], [0, 1], -2.5, 0, 5, -5, 1, 1)
-                .drawEllipse(-1.25, -1.25, 2.5, 2.5);
-            shape.graphics.endStroke();
-            shape.graphics.endFill();
+        //    /// hull
+        //    var rimThickness = 2;
+        //    shape.graphics.setStrokeStyle(rimThickness, 'butt', 'round', 0, true);
+        //    shape.graphics.beginStroke(col);
+        //    shape.graphics.beginRadialGradientFill([col, "#000"], [0, 1], -2.5, 0, 5, -5, 1, 1)
+        //        .drawEllipse(-1.25, -1.25, 2.5, 2.5);
+        //    shape.graphics.endStroke();
+        //    shape.graphics.endFill();
 
-            shape.shadow = new createjs.Shadow("#000000", 3 + size * globalscale / 10, 3 + size * globalscale / 10, globalscale * (10 + size));
+        //    shape.shadow = new createjs.Shadow("#000000", 3 + size * globalscale / 10, 3 + size * globalscale / 10, globalscale * (10 + size));
 
-            // windows
-            shapeNoShadow.graphics.beginLinearGradientFill([col, "#fff"], [0, 1], -2, 3, 2, 2)
-                .setStrokeStyle(.1, 'butt', 'round', 0, true)
-                .beginStroke("#000")
-                .drawEllipse(-.25, .4, .5, .3)
-                .drawEllipse(.4, -.25, .3, .5)
-                .drawEllipse(-.25, -.4, .5, -.3)
-                .endStroke()
-                .endFill();
-            container.regX = 0;
-            container.regY = .2; // wobble
-            container.x = x;
-            container.y = y;
-            container.scaleX = 2;
-            container.scaleY = 2;
-            container.rotation = angle * 180 / Math.PI - 90;
-            if (container.rotation < 0)
-                container.rotation += 360;
-            return container;
-        }
+        //    // windows
+        //    shapeNoShadow.graphics.beginLinearGradientFill([col, "#fff"], [0, 1], -2, 3, 2, 2)
+        //        .setStrokeStyle(.1, 'butt', 'round', 0, true)
+        //        .beginStroke("#000")
+        //        .drawEllipse(-.25, .4, .5, .3)
+        //        .drawEllipse(.4, -.25, .3, .5)
+        //        .drawEllipse(-.25, -.4, .5, -.3)
+        //        .endStroke()
+        //        .endFill();
+        //    container.regX = 0;
+        //    container.regY = .2; // wobble
+        //    container.x = x;
+        //    container.y = y;
+        //    container.scaleX = 2;
+        //    container.scaleY = 2;
+        //    container.rotation = angle * 180 / Math.PI - 90;
+        //    if (container.rotation < 0)
+        //        container.rotation += 360;
+        //    return container;
+        //}
 
         // surface planet2 to surface planet2
         function drawSurfacePath(planet1, planet2, shape) {
@@ -2537,13 +2507,14 @@
             var circle = newScaledShape();
             if (!timeScale)
                 timeScale = 1;
-            circle.graphics.setStrokeStyle((8 + size / 3))
+            circle.graphics.setStrokeStyle((4 + size / 10))
             .beginStroke(ownercolours[owner]).drawCircle(0, 0, 5 + size * 2);
             circle.x = x;
             circle.y = y;
             circle.scaleX = .1 * globalscale;
             circle.scaleY = .1 * globalscale;
             circle.alpha = 1;
+            circle.shadow = new createjs.Shadow(ownercolours[owner], .1, .1, 6 + size / 6);
             layers.fleets.addChild(circle);
 
             var tween = createjs.Tween.get(circle);
